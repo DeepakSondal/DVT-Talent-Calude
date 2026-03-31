@@ -1,0 +1,18 @@
+{
+    email your-email@gmail.com
+}
+
+dvttalent.com, www.dvttalent.com {
+    # ── Frontend ────────────────────────────────────────────────
+    reverse_proxy frontend:3000
+
+    # ── API ─────────────────────────────────────────────────────
+    handle_path /api/v1/* {
+        reverse_proxy api:8000
+    }
+
+    # ── Logging ─────────────────────────────────────────────────
+    log {
+        output file /var/log/caddy/access.log
+    }
+}
