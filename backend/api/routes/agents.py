@@ -52,6 +52,7 @@ async def trigger_agent(
         status=AgentTaskStatus.PENDING,
         input_data=trigger.params,
         celery_task_id=task.id,
+        user_id=current_user.id,
     )
     db.add(agent_task)
     await db.commit()

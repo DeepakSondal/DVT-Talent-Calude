@@ -120,6 +120,8 @@ class User(Base, TimestampMixin):
     avatar_url = Column(String(500))
     preferences = Column(JSON, default={})
     last_login = Column(DateTime(timezone=True))
+    provider = Column(String(50))  # e.g. "google", "github", "linkedin"
+    provider_id = Column(String(255))
 
     # Relationships
     leads = relationship("Lead", back_populates="owner")
@@ -386,6 +388,7 @@ class AgentTask(Base, TimestampMixin):
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
     celery_task_id = Column(String(255))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
 
 class AnalyticsEvent(Base, TimestampMixin):

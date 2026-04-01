@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from "react";
 import {
-  Building2, Users, Mail, TrendingUp, Zap, Brain,
-  ArrowUpRight, Clock, Target, ChevronRight, Activity,
-  BarChart3, Briefcase, RefreshCw, Play, CheckCircle2,
-  AlertCircle, Timer
+  Building2, Users, Mail, TrendingUp, Zap, Brain, Target, Activity, RefreshCw, Briefcase
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
-} from "recharts";
+import { motion } from "framer-motion";
 import { analyticsApi, agentsApi, type DashboardKPIs, type AgentTask } from "@/lib/api";
 import { toast } from "sonner";
+
+// Components
+import { KpiCard, AnimatedNumber } from "@/components/dashboard/kpi-card";
+import { AgentCard, type Agent } from "@/components/dashboard/agent-card";
+import { TaskFeedItem } from "@/components/dashboard/task-item";
+import { PerformanceCharts } from "@/components/dashboard/charts";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface FunnelData { stage: string; count: number; }
@@ -21,7 +20,7 @@ interface FunnelData { stage: string; count: number; }
 // ── Constants ─────────────────────────────────────────────────────────────
 const FUNNEL_COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"];
 
-const AGENTS = [
+const AGENTS: Agent[] = [
   { key: "market_intelligence", label: "Market Intel", icon: "🔍", desc: "Find hiring companies" },
   { key: "lead_discovery",      label: "Lead Discovery", icon: "🎯", desc: "Find decision makers" },
   { key: "candidate_sourcing",  label: "Candidate Sourcing", icon: "👥", desc: "Source candidates" },
@@ -30,153 +29,6 @@ const AGENTS = [
   { key: "learning",            label: "Learning", icon: "🧠", desc: "Improve strategies" },
 ];
 
-// ── Animated Counter ───────────────────────────────────────────────────────
-function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    let start = 0;
-    const end = Math.floor(value);
-    const duration = 1200;
-    const step = Math.ceil(end / (duration / 16));
-    const timer = setInterval(() => {
-      start = Math.min(start + step, end);
-      setDisplay(start);
-      if (start >= end) clearInterval(timer);
-    }, 16);
-    return () => clearInterval(timer);
-  }, [value]);
-  return <span>{display.toLocaleString()}{suffix}</span>;
-}
-
-// ── KPI Card ───────────────────────────────────────────────────────────────
-function KpiCard({
-  title,
-  value,
-  sub,
-  icon: Icon,
-  trend,
-  color,
-  delay = 0,
-}: {
-  title: string;
-  value: React.ReactNode;   // ✅ FIXED
-  sub: string;
-  icon: any;
-  trend?: number;
-  color: string;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
-      className="relative overflow-hidden rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6 group hover:border-white/[0.12] transition-all duration-300"
-    >
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-[0.08] ${color}`} />
-
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-zinc-500 uppercase tracking-widest mb-3">
-            {title}
-          </p>
-
-          {/* ✅ Works for number OR Animated component */}
-          <div className="text-3xl font-bold text-white tracking-tight">
-            {value}
-          </div>
-
-          <p className="text-sm text-zinc-500 mt-1.5">{sub}</p>
-        </div>
-
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${color} bg-opacity-10 shrink-0`}>
-          <Icon className="w-5 h-5 text-white opacity-80" />
-        </div>
-      </div>
-
-      {trend !== undefined && (
-        <div className={`flex items-center gap-1.5 mt-4 text-xs font-medium ${trend >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-          <ArrowUpRight className={`w-3.5 h-3.5 ${trend < 0 ? "rotate-180" : ""}`} />
-          <span>{Math.abs(trend)}% vs last month</span>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-// ── Agent Status Badge ─────────────────────────────────────────────────────
-function AgentCard({ agent, onRun, isRunning }: {
-  agent: typeof AGENTS[0]; onRun: (key: string) => void; isRunning: boolean;
-}) {
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-indigo-500/40 hover:bg-white/[0.05] transition-all cursor-pointer group"
-      onClick={() => !isRunning && onRun(agent.key)}
-    >
-      <span className="text-xl">{agent.icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-zinc-200 truncate">{agent.label}</p>
-        <p className="text-xs text-zinc-600 truncate">{agent.desc}</p>
-      </div>
-      {isRunning ? (
-        <div className="w-5 h-5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin shrink-0" />
-      ) : (
-        <Play className="w-4 h-4 text-zinc-600 group-hover:text-indigo-400 transition-colors shrink-0" />
-      )}
-    </motion.div>
-  );
-}
-
-// ── Task Feed ─────────────────────────────────────────────────────────────
-function TaskFeedItem({ task }: { task: AgentTask }) {
-  const icons: Record<string, any> = {
-    completed: <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
-    running: <Timer className="w-4 h-4 text-indigo-400 animate-pulse" />,
-    failed: <AlertCircle className="w-4 h-4 text-red-400" />,
-    pending: <Clock className="w-4 h-4 text-zinc-500" />,
-  };
-  const timeAgo = (ts: string) => {
-    const diff = Date.now() - new Date(ts).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    return `${Math.floor(mins / 60)}h ago`;
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-3 py-2.5"
-    >
-      <div className="shrink-0">{icons[task.status] || icons.pending}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-zinc-300 truncate">{task.agent_name.replace(/_/g, " ")}</p>
-        <p className="text-xs text-zinc-600">{task.task_type.replace(/_/g, " ")}</p>
-      </div>
-      <span className="text-xs text-zinc-600 shrink-0">{timeAgo(task.created_at)}</span>
-    </motion.div>
-  );
-}
-
-// ── Custom Tooltip ─────────────────────────────────────────────────────────
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[#0f1117] border border-white/10 rounded-xl px-4 py-3 shadow-2xl">
-      <p className="text-xs text-zinc-500 mb-2">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} className="text-sm font-medium" style={{ color: p.color }}>
-          {p.name}: {p.value}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-// ── Main Dashboard ─────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
   const [leadFunnel, setLeadFunnel] = useState<FunnelData[]>([]);
@@ -246,7 +98,6 @@ export default function DashboardPage() {
 
   const displayKpis = kpis || mockKpis;
 
-  // Mock email chart data
   const chartData = emailChart.length > 0 ? emailChart : Array.from({ length: 14 }, (_, i) => ({
     date: new Date(Date.now() - (13 - i) * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     sent: Math.floor(Math.random() * 80 + 40),
@@ -261,270 +112,219 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#080a0e] text-white font-['Geist',_sans-serif]">
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-50 bg-[#080a0e]/80 backdrop-blur-xl border-b border-white/[0.06]">
-        <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center">
-              <Brain className="w-4.5 h-4.5 text-white" />
-            </div>
-            <span className="text-sm font-semibold tracking-tight">DVT Talent AI</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              Autonomous
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={loadData}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] transition-all"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleRunPipeline}
-              disabled={pipelineRunning}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-all shadow-lg shadow-indigo-500/20"
-            >
-              {pipelineRunning ? (
-                <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Running...</>
-              ) : (
-                <><Zap className="w-3.5 h-3.5" /> Run Full Pipeline</>
-              )}
-            </motion.button>
-          </div>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white focus:outline-none">Command Center</h1>
+          <p className="text-sm text-zinc-500 mt-1">Real-time automation and lead performance overview.</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadData}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-400 bg-white/[0.03] border border-white/[0.06] hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleRunPipeline}
+            disabled={pipelineRunning}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-semibold transition-all shadow-lg shadow-indigo-600/20"
+          >
+            {pipelineRunning ? (
+              <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Running...</>
+            ) : (
+              <><Zap className="w-3.5 h-3.5" /> Full AI Pipeline</>
+            )}
+          </motion.button>
         </div>
       </div>
 
-      <div className="max-w-[1440px] mx-auto px-6 py-8 space-y-8">
-        {/* ── KPI Grid ──────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            title="Companies Found" delay={0}
-            value={<AnimatedNumber value={displayKpis.companies.total} />}
-            sub={`+${displayKpis.companies.new_this_period} this month`}
-            icon={Building2} color="bg-blue-500" trend={18}
-          />
-          <KpiCard
-            title="Active Leads" delay={0.08}
-            value={<AnimatedNumber value={displayKpis.leads.total} />}
-            sub={`${displayKpis.leads.win_rate}% win rate`}
-            icon={Target} color="bg-violet-500" trend={12}
-          />
-          <KpiCard
-            title="Candidates" delay={0.16}
-            value={<AnimatedNumber value={displayKpis.candidates.total} />}
-            sub={`${displayKpis.candidates.placed} placed`}
-            icon={Users} color="bg-indigo-500" trend={24}
-          />
-          <KpiCard
-            title="Emails Sent" delay={0.24}
-            value={<AnimatedNumber value={displayKpis.outreach.emails_sent} />}
-            sub={`${displayKpis.outreach.open_rate}% open rate`}
-            icon={Mail} color="bg-sky-500" trend={7}
-          />
-        </div>
+      {/* ── KPI Grid ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          title="Companies Found" delay={0}
+          value={<AnimatedNumber value={displayKpis.companies.total} />}
+          sub={`+${displayKpis.companies.new_this_period} this month`}
+          icon={Building2} color="bg-blue-500" trend={18}
+        />
+        <KpiCard
+          title="Active Leads" delay={0.08}
+          value={<AnimatedNumber value={displayKpis.leads.total} />}
+          sub={`${displayKpis.leads.win_rate}% win rate`}
+          icon={Target} color="bg-violet-500" trend={12}
+        />
+        <KpiCard
+          title="Candidates" delay={0.16}
+          value={<AnimatedNumber value={displayKpis.candidates.total} />}
+          sub={`${displayKpis.candidates.placed} placed`}
+          icon={Users} color="bg-indigo-500" trend={24}
+        />
+        <KpiCard
+          title="Emails Sent" delay={0.24}
+          value={<AnimatedNumber value={displayKpis.outreach.emails_sent} />}
+          sub={`${displayKpis.outreach.open_rate}% open rate`}
+          icon={Mail} color="bg-sky-500" trend={7}
+        />
+      </div>
 
-        {/* ── Main Grid ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-12 gap-4">
-          {/* Email Performance Chart */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="col-span-12 lg:col-span-8 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-sm font-semibold text-white">Email Performance</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">Last 14 days</p>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-zinc-500">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block"/>Sent</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-400 inline-block"/>Opened</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>Replied</span>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="gSent" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gOpened" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gReplied" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="date" tick={{ fill: "#52525b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#52525b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="sent" name="Sent" stroke="#6366f1" fill="url(#gSent)" strokeWidth={2} dot={false} />
-                <Area type="monotone" dataKey="opened" name="Opened" stroke="#a78bfa" fill="url(#gOpened)" strokeWidth={2} dot={false} />
-                <Area type="monotone" dataKey="replied" name="Replied" stroke="#34d399" fill="url(#gReplied)" strokeWidth={2} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </motion.div>
+      {/* ── Main Grid ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-12 gap-4">
+        <PerformanceCharts chartData={chartData} />
 
-          {/* Lead Funnel */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
-          >
-            <h3 className="text-sm font-semibold text-white mb-1">Lead Funnel</h3>
-            <p className="text-xs text-zinc-500 mb-5">Pipeline stage distribution</p>
-            <div className="space-y-3">
-              {funnelData.map((item, i) => {
-                const max = Math.max(...funnelData.map((f) => f.count));
-                const pct = Math.round((item.count / max) * 100);
-                return (
-                  <div key={item.stage}>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-zinc-400 capitalize">{item.stage}</span>
-                      <span className="text-zinc-500">{item.count}</span>
-                    </div>
-                    <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ delay: 0.5 + i * 0.07, duration: 0.6 }}
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }}
-                      />
-                    </div>
+        {/* Lead Funnel */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
+        >
+          <h3 className="text-sm font-semibold text-white mb-1">Lead Funnel</h3>
+          <p className="text-xs text-zinc-500 mb-5">Pipeline stage distribution</p>
+          <div className="space-y-3">
+            {funnelData.map((item, i) => {
+              const max = Math.max(...funnelData.map((f) => f.count));
+              const pct = Math.round((item.count / max) * 100);
+              return (
+                <div key={item.stage}>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-zinc-400 capitalize">{item.stage}</span>
+                    <span className="text-zinc-500">{item.count}</span>
                   </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        </div>
-
-        {/* ── Bottom Grid ───────────────────────────────────────────── */}
-        <div className="grid grid-cols-12 gap-4">
-          {/* Agents Control Panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
-          >
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="text-sm font-semibold text-white">AI Agents</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">Click to run any agent</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs text-emerald-400">Active</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {AGENTS.map((agent) => (
-                <AgentCard
-                  key={agent.key}
-                  agent={agent}
-                  onRun={handleRunAgent}
-                  isRunning={runningAgent === agent.key}
-                />
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Recent Activity */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
-          >
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="text-sm font-semibold text-white">Agent Activity</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">Recent task executions</p>
-              </div>
-              <Activity className="w-4 h-4 text-zinc-600" />
-            </div>
-            <div className="divide-y divide-white/[0.04]">
-              {tasks.length > 0 ? (
-                tasks.slice(0, 8).map((task) => (
-                  <TaskFeedItem key={task.id} task={task} />
-                ))
-              ) : (
-                // Mock activity
-                [
-                  { id: "1", agent_name: "market_intelligence", task_type: "daily_scan", status: "completed", created_at: new Date(Date.now() - 120000).toISOString() },
-                  { id: "2", agent_name: "candidate_sourcing", task_type: "source_developers", status: "completed", created_at: new Date(Date.now() - 480000).toISOString() },
-                  { id: "3", agent_name: "outreach", task_type: "send_emails", status: "running", created_at: new Date(Date.now() - 60000).toISOString() },
-                  { id: "4", agent_name: "resume_analysis", task_type: "score_batch", status: "completed", created_at: new Date(Date.now() - 900000).toISOString() },
-                  { id: "5", agent_name: "crm_management", task_type: "pipeline_update", status: "completed", created_at: new Date(Date.now() - 3600000).toISOString() },
-                  { id: "6", agent_name: "analytics", task_type: "compute_metrics", status: "pending", created_at: new Date(Date.now() - 7200000).toISOString() },
-                ].map((task) => <TaskFeedItem key={task.id} task={task as AgentTask} />)
-              )}
-            </div>
-          </motion.div>
-
-          {/* Quick Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
-          >
-            <h3 className="text-sm font-semibold text-white mb-5">Performance Snapshot</h3>
-            <div className="space-y-4">
-              {[
-                { label: "Open Rate", value: displayKpis.outreach.open_rate, suffix: "%", target: 35, color: "bg-indigo-500" },
-                { label: "Reply Rate", value: displayKpis.outreach.reply_rate, suffix: "%", target: 10, color: "bg-violet-500" },
-                { label: "Win Rate", value: displayKpis.leads.win_rate, suffix: "%", target: 15, color: "bg-sky-500" },
-                { label: "Placement Rate", value: displayKpis.candidates.placement_rate, suffix: "%", target: 5, color: "bg-emerald-500" },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <div className="flex justify-between text-xs mb-2">
-                    <span className="text-zinc-400">{stat.label}</span>
-                    <span className="text-white font-medium">{stat.value}{stat.suffix}</span>
-                  </div>
-                  <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((stat.value / stat.target) * 100, 100)}%` }}
-                      transition={{ delay: 0.6, duration: 0.8 }}
-                      className={`h-full rounded-full ${stat.color}`}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ delay: 0.5 + i * 0.07, duration: 0.6 }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }}
                     />
                   </div>
-                  <p className="text-xs text-zinc-600 mt-1">Target: {stat.target}{stat.suffix}</p>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ── Bottom Grid ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* Agents Control Panel */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
+        >
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-sm font-semibold text-white">AI Agents</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">Click to run any agent</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-emerald-400">Active</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {AGENTS.map((agent) => (
+              <AgentCard
+                key={agent.key}
+                agent={agent}
+                onRun={handleRunAgent}
+                isRunning={runningAgent === agent.key}
+              />
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
+        >
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Agent Activity</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">Recent task executions</p>
+            </div>
+            <Activity className="w-4 h-4 text-zinc-600" />
+          </div>
+          <div className="divide-y divide-white/[0.04]">
+            {tasks.length > 0 ? (
+              tasks.slice(0, 8).map((task) => (
+                <TaskFeedItem key={task.id} task={task} />
+              ))
+            ) : (
+              // Mock activity
+              [
+                { id: "1", agent_name: "market_intelligence", task_type: "daily_scan", status: "completed", created_at: new Date(Date.now() - 120000).toISOString() },
+                { id: "2", agent_name: "candidate_sourcing", task_type: "source_developers", status: "completed", created_at: new Date(Date.now() - 480000).toISOString() },
+                { id: "3", agent_name: "outreach", task_type: "send_emails", status: "running", created_at: new Date(Date.now() - 60000).toISOString() },
+                { id: "4", agent_name: "resume_analysis", task_type: "score_batch", status: "completed", created_at: new Date(Date.now() - 900000).toISOString() },
+                { id: "5", agent_name: "crm_management", task_type: "pipeline_update", status: "completed", created_at: new Date(Date.now() - 3600000).toISOString() },
+                { id: "6", agent_name: "analytics", task_type: "compute_metrics", status: "pending", created_at: new Date(Date.now() - 7200000).toISOString() },
+              ].map((task) => <TaskFeedItem key={task.id} task={task as AgentTask} />)
+            )}
+          </div>
+        </motion.div>
+
+        {/* Quick Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="col-span-12 lg:col-span-4 rounded-2xl bg-[#0f1117] border border-white/[0.06] p-6"
+        >
+          <h3 className="text-sm font-semibold text-white mb-5">Performance Snapshot</h3>
+          <div className="space-y-4">
+            {[
+              { label: "Open Rate", value: displayKpis.outreach.open_rate, suffix: "%", target: 35, color: "bg-indigo-500" },
+              { label: "Reply Rate", value: displayKpis.outreach.reply_rate, suffix: "%", target: 10, color: "bg-violet-500" },
+              { label: "Win Rate", value: displayKpis.leads.win_rate, suffix: "%", target: 15, color: "bg-sky-500" },
+              { label: "Placement Rate", value: displayKpis.candidates.placement_rate, suffix: "%", target: 5, color: "bg-emerald-500" },
+            ].map((stat) => (
+              <div key={stat.label}>
+                <div className="flex justify-between text-xs mb-2">
+                  <span className="text-zinc-400">{stat.label}</span>
+                  <span className="text-white font-medium">{stat.value}{stat.suffix}</span>
+                </div>
+                <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min((stat.value / stat.target) * 100, 100)}%` }}
+                    transition={{ delay: 0.6, duration: 0.8 }}
+                    className={`h-full rounded-full ${stat.color}`}
+                  />
+                </div>
+                <p className="text-xs text-zinc-600 mt-1">Target: {stat.target}{stat.suffix}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-white/[0.06]">
+            <p className="text-xs text-zinc-500 mb-3">Today's Automation</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Emails Drafted", value: "24", icon: Mail },
+                { label: "Interviews Scheduled", value: "3", icon: Briefcase },
+                { label: "New Candidates", value: "47", icon: Users },
+                { label: "Leads Updated", value: "12", icon: TrendingUp },
+              ].map((item) => (
+                <div key={item.label} className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.04]">
+                  <item.icon className="w-3.5 h-3.5 text-zinc-600 mb-1.5" />
+                  <p className="text-lg font-bold text-white">{item.value}</p>
+                  <p className="text-[10px] text-zinc-600 leading-tight">{item.label}</p>
                 </div>
               ))}
             </div>
-
-            <div className="mt-6 pt-5 border-t border-white/[0.06]">
-              <p className="text-xs text-zinc-500 mb-3">Today's Automation</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Emails Drafted", value: "24", icon: Mail },
-                  { label: "Interviews Scheduled", value: "3", icon: Briefcase },
-                  { label: "New Candidates", value: "47", icon: Users },
-                  { label: "Leads Updated", value: "12", icon: TrendingUp },
-                ].map((item) => (
-                  <div key={item.label} className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.04]">
-                    <item.icon className="w-3.5 h-3.5 text-zinc-600 mb-1.5" />
-                    <p className="text-lg font-bold text-white">{item.value}</p>
-                    <p className="text-[10px] text-zinc-600 leading-tight">{item.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
