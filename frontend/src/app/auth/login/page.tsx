@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Brain, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
@@ -140,17 +141,11 @@ export default function LoginPage() {
 
         <p className="text-center text-xs text-zinc-600 mt-8">
           Don't have an account?{" "}
-          <a href="/auth/register" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+          <Link href="/auth/register" className="text-indigo-400 hover:text-indigo-300 transition-colors">
             Create one
-          </a>
+          </Link>
         </p>
 
-        {/* Demo hint */}
-        <div className="mt-8 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-          <p className="text-xs text-zinc-600 text-center">
-            Demo: <span className="text-zinc-400">admin@dvt.com</span> / <span className="text-zinc-400">admin123</span>
-          </p>
-        </div>
       </motion.div>
     </div>
   );

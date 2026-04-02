@@ -17,6 +17,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=https://dvttalent.com/api/v1
     container_name: dvt_frontend
     restart: always
     environment:
