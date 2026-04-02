@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 import asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient
@@ -44,3 +45,8 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+@pytest_asyncio.fixture
+async def async_client(client) -> AsyncClient:
+    """Explicitly yielded client for tests that strictly require an awaited object."""
+    return client

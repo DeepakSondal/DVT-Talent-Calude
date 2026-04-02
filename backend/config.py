@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # App
@@ -26,6 +27,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://dvt_user:dvt_password@localhost:5432/dvt_talent"
     database_sync_url: str = "postgresql://dvt_user:dvt_password@localhost:5432/dvt_talent"
+    postgres_db: str = ""
+    postgres_user: str = ""
+    postgres_password: str = ""
 
     # Redis (Docker Internal Networking)
     redis_url: str = "redis://redis:6379/0"
@@ -77,6 +81,7 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     linkedin_client_id: str = ""
     linkedin_client_secret: str = ""
+    github_token: str = ""
 
     # App base URL for tracking pixels, webhooks, etc.
     app_base_url: str = "http://localhost:8000"
