@@ -25,6 +25,8 @@ services:
         condition: service_healthy
     networks:
       - dvt-net
+    ports:
+      - "3000:3000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
@@ -40,6 +42,8 @@ services:
     build:
       context: ./backend
       target: api
+    ports:
+      - "8000:8000"
     environment:
       CHROMA_HOST: chromadb
       CHROMA_PORT: 8000

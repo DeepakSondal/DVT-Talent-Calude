@@ -2,7 +2,7 @@
     email admin@dvttalent.com
 }
 
-dvttalent.com {
+localhost, 127.0.0.1, dvttalent.com {
     # Next.js Frontend
     reverse_proxy frontend:3000
 
