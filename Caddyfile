@@ -6,8 +6,8 @@ dvttalent.com {
     # Next.js Frontend
     reverse_proxy frontend:3000
 
-    # API Routes
-    handle_path /api/* {
+    # API Routes (Do NOT strip /api prefix - backend expects it)
+    handle /api/* {
         reverse_proxy backend:8000
     }
 
