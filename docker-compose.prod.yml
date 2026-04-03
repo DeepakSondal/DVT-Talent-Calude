@@ -37,7 +37,7 @@ services:
     restart: always
     environment:
       - APP_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql+asyncpg://dvt_user:${DB_PASSWORD}@db:5432/dvt_talent
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - APP_BASE_URL=https://dvttalent.com
@@ -68,7 +68,7 @@ services:
     restart: always
     environment:
       - APP_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql+asyncpg://dvt_user:${DB_PASSWORD}@db:5432/dvt_talent
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - GROQ_API_KEY=${GROQ_API_KEY}
