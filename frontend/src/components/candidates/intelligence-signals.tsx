@@ -162,6 +162,3 @@ export function IntelligenceSignals({ metadata }: IntelligenceSignalsProps) {
     </div>
   );
 }
-    </div>
-  );
-}
