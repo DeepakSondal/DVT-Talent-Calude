@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import structlog
 
+from sqlalchemy import create_engine, text
+from config import settings
 from agents.market_intelligence_agent import MarketIntelligenceAgent
 from agents.lead_discovery_agent import LeadDiscoveryAgent
 from agents.candidate_sourcing_agent import CandidateSourcingAgent
@@ -104,6 +106,11 @@ class AgentOrchestrator:
             )
             companies = market_result.get("companies", [])
             self.shared_memory["companies"] = companies
+            
+            # SAVE TO DB
+            for c in companies:
+                self._save_company(c)
+                
             pipeline_results["stages"]["market_intelligence"] = {
                 "companies_found": len(companies),
             }
@@ -137,6 +144,11 @@ class AgentOrchestrator:
                     c["company"] = company
                 all_contacts.extend(contacts)
             self.shared_memory["contacts"] = all_contacts
+            
+            # SAVE TO DB
+            for contact in all_contacts:
+                self._save_lead(contact)
+
             pipeline_results["stages"]["lead_discovery"] = {
                 "contacts_found": len(all_contacts),
             }
@@ -160,6 +172,11 @@ class AgentOrchestrator:
                         c["target_company"] = company.get("name")
                     all_candidates.extend(candidates)
             self.shared_memory["candidates"] = all_candidates
+            
+            # SAVE TO DB
+            for candidate in all_candidates:
+                self._save_candidate(candidate)
+
             pipeline_results["stages"]["candidate_sourcing"] = {
                 "candidates_found": len(all_candidates),
             }
@@ -236,3 +253,74 @@ class AgentOrchestrator:
             "last_runs": self.run_log[-10:] if self.run_log else [],
             "shared_memory_keys": list(self.shared_memory.keys()),
         }
+
+    # ── DB Persistence Helpers ───────────────────────────────────────────
+    def _save_company(self, data: dict):
+        try:
+            engine = create_engine(settings.database_sync_url)
+            with engine.connect() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO companies (id, name, domain, industry, location, score, created_at)
+                        VALUES (gen_random_uuid(), :name, :domain, :industry, :location, :score, NOW())
+                        ON CONFLICT (domain) DO UPDATE SET score = EXCLUDED.score, last_enriched = NOW()
+                    """),
+                    {
+                        "name": data.get("name", "Unknown"),
+                        "domain": data.get("domain", ""),
+                        "industry": data.get("industry", "Technology"),
+                        "location": data.get("location", "Global"),
+                        "score": data.get("company_score", 50),
+                    }
+                )
+                conn.commit()
+        except Exception as e:
+            log.error("db_save_failed", type="company", error=str(e))
+
+    def _save_lead(self, data: dict):
+        try:
+            engine = create_engine(settings.database_sync_url)
+            with engine.connect() as conn:
+                # Find company_id by domain
+                comp = conn.execute(
+                    text("SELECT id FROM companies WHERE domain = :domain LIMIT 1"),
+                    {"domain": data.get("domain", "") or data.get("company", {}).get("domain", "")}
+                ).fetchone()
+                
+                conn.execute(
+                    text("""
+                        INSERT INTO leads (id, company_id, status, source, score, meta_data, created_at)
+                        VALUES (gen_random_uuid(), :comp_id, 'new', 'ai_discovery', :score, :meta, NOW())
+                    """),
+                    {
+                        "comp_id": comp[0] if comp else None,
+                        "score": data.get("score", 0),
+                        "meta": json.dumps(data),
+                    }
+                )
+                conn.commit()
+        except Exception as e:
+            log.error("db_save_failed", type="lead", error=str(e))
+
+    def _save_candidate(self, data: dict):
+        try:
+            engine = create_engine(settings.database_sync_url)
+            with engine.connect() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO candidates (id, first_name, last_name, email, title, location, score, created_at)
+                        VALUES (gen_random_uuid(), :fn, :ln, :email, :title, :loc, :score, NOW())
+                        ON CONFLICT (email) DO NOTHING
+                    """),
+                    {
+                        "fn": data.get("first_name", "AI"),
+                        "ln": data.get("last_name", "Candidate"),
+                        "email": data.get("email", f"ai_{__import__('uuid').uuid4()}@dvt.local"),
+                        "title": data.get("title", data.get("target_role", "Software Engineer")),
+                        "loc": data.get("location", "Remote"),
+                        "score": data.get("score", 0),
+                    }
+                )
+                conn.commit()
+        except Exception as e:
+            log.error("db_save_failed", type="candidate", error=str(e))

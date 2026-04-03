@@ -10,9 +10,23 @@ import structlog
 from typing import Any, Dict, Optional
 from datetime import datetime
 
+import redis
 from workers.celery_app import celery_app
+from config import settings
 
 log = structlog.get_logger(__name__)
+
+def broadcast_signal(message: str, signal_type: str = "agent_info"):
+    """Publish a signal to Redis for the WebSocket relay to pick up"""
+    try:
+        r = redis.from_url(settings.redis_url)
+        r.publish("dvt_signals", json.dumps({
+            "type": signal_type,
+            "message": message,
+            "timestamp": datetime.utcnow().isoformat()
+        }))
+    except Exception as e:
+        log.error("broadcast_failed", error=str(e))
 
 
 @celery_app.task(bind=True, name="workers.tasks.run_agent_task", max_retries=3)
@@ -20,9 +34,11 @@ def run_agent_task(self, agent_name: str, params: Dict[str, Any] = None) -> Dict
     """Run any single agent by name with given params"""
     log.info("celery_task_started", task="run_agent_task", agent=agent_name)
     try:
+        broadcast_signal(f"Agent '{agent_name}' initiated...", "agent_start")
         from agents.orchestrator import AgentOrchestrator
         orchestrator = AgentOrchestrator()
         result = orchestrator.run_single_agent(agent_name, params or {})
+        broadcast_signal(f"Agent '{agent_name}' completed successfully.", "agent_success")
         log.info("celery_task_completed", task="run_agent_task", agent=agent_name)
         return result
     except Exception as exc:
@@ -40,6 +56,7 @@ def run_full_autonomous_pipeline(
     """Run the complete end-to-end autonomous recruiting pipeline"""
     log.info("celery_task_started", task="full_pipeline", industry=industry)
     try:
+        broadcast_signal(f"Starting full autonomous pipeline for {industry} in {location}...", "pipeline_start")
         from agents.orchestrator import AgentOrchestrator
         orchestrator = AgentOrchestrator()
         result = orchestrator.run_full_pipeline(
@@ -47,6 +64,7 @@ def run_full_autonomous_pipeline(
             location=location,
             send_emails=send_emails,
         )
+        broadcast_signal(f"Full pipeline completed in {result.get('duration_seconds', 0):.1f}s", "pipeline_success")
         log.info("celery_task_completed", task="full_pipeline", duration=result.get("duration_seconds"))
         return result
     except Exception as exc:

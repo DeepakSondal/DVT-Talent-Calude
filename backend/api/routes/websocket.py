@@ -1,6 +1,6 @@
-"""
-DVT Talent AI — WebSocket (FIXED [H-02]: Added JWT authentication)
-"""
+import json
+import asyncio
+import redis.asyncio as redis
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from typing import List, Dict
 from jose import JWTError, jwt
@@ -12,16 +12,36 @@ router = APIRouter()
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}  # user_id → ws
+        self.redis_client = redis.from_url(settings.redis_url)
+        self.pubsub_task = None
 
     async def connect(self, websocket: WebSocket, user_id: str):
         await websocket.accept()
         self.active_connections[user_id] = websocket
+        
+        # Start Redis listener if not running
+        if self.pubsub_task is None:
+            self.pubsub_task = asyncio.create_task(self._redis_listener())
 
     def disconnect(self, user_id: str):
         self.active_connections.pop(user_id, None)
 
+    async def _redis_listener(self):
+        """Background task to listen for AI signals from Celery workers"""
+        pubsub = self.redis_client.pubsub()
+        await pubsub.subscribe("dvt_signals")
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        data = json.loads(message["data"])
+                        await self.broadcast(data)
+                    except Exception:
+                        pass
+        except Exception:
+            self.pubsub_task = None
+
     async def send_to_user(self, user_id: str, message: dict):
-        import json
         ws = self.active_connections.get(user_id)
         if ws:
             try:
@@ -30,7 +50,6 @@ class ConnectionManager:
                 self.disconnect(user_id)
 
     async def broadcast(self, message: dict):
-        import json
         disconnected = []
         for uid, ws in self.active_connections.items():
             try:
@@ -59,7 +78,6 @@ def _verify_ws_token(token: str) -> str | None:
 @router.websocket("/live")
 async def websocket_endpoint(
     websocket: WebSocket,
-    # FIX [H-02]: Token passed as query param (standard WS auth pattern)
     token: str = Query(..., description="JWT access token"),
 ):
     user_id = _verify_ws_token(token)
@@ -69,14 +87,12 @@ async def websocket_endpoint(
 
     await manager.connect(websocket, user_id)
     try:
-        # Send initial connection confirmation
         await manager.send_to_user(user_id, {
             "type": "connected",
-            "message": "Live feed active",
+            "message": "Live Engine Active",
             "user_id": user_id,
         })
         while True:
-            # Keep-alive: echo ping/pong
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text('{"type":"pong"}')
