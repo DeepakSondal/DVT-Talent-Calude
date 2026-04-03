@@ -83,16 +83,16 @@ export default function ExecutiveDashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-               <ShieldCheck className="w-4 h-4 text-primary" />
+            <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-100">
+               <ShieldCheck className="w-4 h-4 text-indigo-600" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Executive Command Center</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Executive Command Center</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tighter text-white">Platform ROI Overview</h1>
-          <p className="text-lg text-white/30 font-medium italic">Strategic visualization of autonomous human-hour elevation and pipeline velocity.</p>
+          <h1 className="text-5xl font-black tracking-tighter text-slate-900">Platform ROI Overview</h1>
+          <p className="text-lg text-slate-400 font-medium italic">Strategic visualization of autonomous human-hour elevation and pipeline velocity.</p>
         </div>
         <div className="flex items-center gap-3">
-           <Button variant="secondary" className="h-12 px-6 rounded-xl border-white/5 gap-2">
+           <Button variant="secondary" className="h-12 px-6 rounded-xl border-slate-200 gap-2">
               <History className="w-4 h-4" />
               Intelligence Logs
            </Button>
@@ -111,61 +111,61 @@ export default function ExecutiveDashboard() {
 
       {/* Hero ROI Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-         <Card className="p-8 border-primary/30 bg-primary/[0.02] relative overflow-hidden group hover:border-primary/50 transition-all">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[60px] pointer-events-none" />
+         <Card className="p-8 border-indigo-100 bg-indigo-50/10 relative overflow-hidden group hover:border-indigo-300 transition-all shadow-sm">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-[60px] pointer-events-none" />
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                  <Timer className="w-6 h-6 text-primary" />
-                  <Badge variant="outline" className="border-primary/20 text-primary text-[8px] font-black tracking-widest uppercase">Target Achieved</Badge>
+                  <Timer className="w-6 h-6 text-indigo-600" />
+                  <Badge variant="primary">Target Achieved</Badge>
                </div>
                <div className="space-y-1">
-                  <h3 className="text-6xl font-black tracking-tighter text-white">428h</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Human Hours Saved / Month</p>
+                  <h3 className="text-6xl font-black tracking-tighter text-slate-900">428h</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Human Hours Saved / Month</p>
                </div>
-               <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
                      <TrendingUp className="w-3 h-3" />
                      +14% Increase
                   </span>
-                  <span className="text-[10px] font-black text-white/20 uppercase">vs Last Period</span>
+                  <span className="text-[10px] font-black text-slate-300 uppercase">vs Last Period</span>
                </div>
             </div>
          </Card>
 
-         <Card className="p-8 border-white/5 bg-white/[0.01] relative overflow-hidden group transition-all">
+         <Card variant="solid" className="p-8 relative overflow-hidden group transition-all">
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                  <BrainCircuit className="w-6 h-6 text-emerald-400" />
-                  <Badge variant="outline" className="border-white/10 text-white/20 text-[8px] font-black tracking-widest uppercase">Continuous Engine</Badge>
+                  <BrainCircuit className="w-6 h-6 text-emerald-500" />
+                  <Badge variant="success">Continuous Engine</Badge>
                </div>
                <div className="space-y-1">
-                  <h3 className="text-6xl font-black tracking-tighter text-white">92%</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Autonomous Sourcing Efficiency</p>
+                  <h3 className="text-6xl font-black tracking-tighter text-slate-900">92%</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Autonomous Sourcing Efficiency</p>
                </div>
-               <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
                      Precision: 0.94
                   </span>
-                  <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
+                  <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
                </div>
             </div>
          </Card>
 
-         <Card className="p-8 border-white/5 bg-white/[0.01] relative overflow-hidden group transition-all">
+         <Card variant="solid" className="p-8 relative overflow-hidden group transition-all">
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                  <Globe className="w-6 h-6 text-blue-400" />
-                  <Badge variant="outline" className="border-white/10 text-white/20 text-[8px] font-black tracking-widest uppercase">Global Network</Badge>
+                  <Globe className="w-6 h-6 text-indigo-500" />
+                  <Badge variant="outline">Global Network</Badge>
                </div>
                <div className="space-y-1">
-                  <h3 className="text-6xl font-black tracking-tighter text-white">12.4k</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Active Talent Nodes Synced</p>
+                  <h3 className="text-6xl font-black tracking-tighter text-slate-900">12.4k</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Active Talent Nodes Synced</p>
                </div>
-               <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1">
+               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
                      Latency: 140ms
                   </span>
-                  <RefreshCw className="w-3 h-3 text-white/10 animate-spin-slow" />
+                  <RefreshCw className="w-3 h-3 text-slate-200 animate-spin-slow" />
                </div>
             </div>
          </Card>
@@ -175,56 +175,55 @@ export default function ExecutiveDashboard() {
       <div className="grid grid-cols-12 gap-10">
          
          {/* Flywheel Intensity Radar */}
-         <Card className="col-span-12 lg:col-span-5 p-10 bg-white/[0.01] border-white/5 space-y-10 relative overflow-hidden group">
+         <Card className="col-span-12 lg:col-span-5 p-10 bg-white border-slate-100 space-y-10 relative overflow-hidden group shadow-sm">
             <div className="flex flex-col gap-2">
-               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">Flywheel Performance</h3>
-               <h2 className="text-2xl font-black text-white">Autonomous Intensity</h2>
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-indigo-600">Flywheel Performance</h3>
+               <h2 className="text-2xl font-black text-slate-900">Autonomous Intensity</h2>
             </div>
             <div className="h-[350px] w-full">
                <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="80%" data={FLYWHEEL_RADAR}>
-                     <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                     <PolarAngleAxis dataKey="subject" stroke="rgba(255,255,255,0.2)" fontSize={10} fontWeight="bold" />
+                     <PolarGrid stroke="#e2e8f0" />
+                     <PolarAngleAxis dataKey="subject" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
                      <Radar
                         name="Platform"
                         dataKey="A"
-                        stroke="#6366f1"
-                        fill="#6366f1"
-                        fillOpacity={0.2}
+                        stroke="#4f46e5"
+                        fill="#4f46e5"
+                        fillOpacity={0.1}
                      />
                      <Tooltip 
-                        contentStyle={{ backgroundColor: "#0f1117", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px" }}
+                        contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
                      />
                   </RadarChart>
                </ResponsiveContainer>
             </div>
-            <p className="text-xs text-white/30 font-medium italic text-center">Intensity shows operational depth across core AI recruiting modules.</p>
+            <p className="text-xs text-slate-400 font-medium italic text-center">Intensity shows operational depth across core AI recruiting modules.</p>
          </Card>
 
          {/* Pipeline conversion */}
          <div className="col-span-12 lg:col-span-7 space-y-10">
             <div className="flex flex-col gap-2">
-               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-emerald-400">Yield Management</h3>
-               <h2 className="text-2xl font-black text-white">Commercial Conversion Funnel</h2>
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600">Yield Management</h3>
+               <h2 className="text-2xl font-black text-slate-900">Commercial Conversion Funnel</h2>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-4">
                {CONVERSION_FUNNEL.map((step, i) => (
                   <div key={step.label} className="relative group">
                      <Card 
                         className={cn(
-                           "h-20 border-white/5 flex items-center justify-between px-10 transition-all duration-700",
-                           step.color,
-                           "hover:border-white/20"
+                           "h-20 border-slate-100 flex items-center justify-between px-10 transition-all duration-700 bg-slate-50 shadow-sm",
+                           "hover:border-indigo-200"
                         )}
                         style={{ width: `${100 - (i * 8)}%`, marginLeft: `${i * 4}%` }}
                      >
                         <div className="space-y-1">
-                           <p className="text-[9px] font-black uppercase tracking-widest text-white/30">{step.label}</p>
-                           <p className="text-xl font-black text-white">{step.value}</p>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{step.label}</p>
+                           <p className="text-xl font-black text-slate-900">{step.value}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                           <span className="text-lg font-black text-white/50">{step.percent}%</span>
-                           {i > 0 && <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Conversion</span>}
+                           <span className="text-lg font-black text-slate-500">{step.percent}%</span>
+                           {i > 0 && <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Conversion</span>}
                         </div>
                      </Card>
                   </div>
@@ -234,18 +233,18 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ROI Over Time Area Chart */}
-      <Card className="p-0 border-white/5 bg-white/[0.01] overflow-hidden group">
-         <div className="p-10 border-b border-white/5 flex items-end justify-between">
+      <Card className="p-0 border-slate-100 bg-white overflow-hidden group shadow-sm">
+         <div className="p-10 border-b border-slate-50 flex items-end justify-between">
             <div className="space-y-2">
-               <h2 className="text-3xl font-black text-white tracking-tighter">Sourcing Alpha Velocity</h2>
-               <p className="text-sm text-white/30 font-medium flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
+               <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Sourcing Alpha Velocity</h2>
+               <p className="text-sm text-slate-400 font-medium flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-indigo-600" />
                   Growth in automated talent acquisition cycles
                </p>
             </div>
-            <div className="flex items-center gap-4 bg-white/[0.03] p-1 rounded-xl border border-white/5">
+            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
                {['7D', '30D', '90D', 'ALL'].map(t => (
-                  <button key={t} className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", t === '30D' ? "bg-primary text-white shadow-lg" : "text-white/20 hover:text-white")}>
+                  <button key={t} className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", t === '30D' ? "bg-indigo-600 text-white shadow-md" : "text-slate-400 hover:text-slate-900")}>
                      {t}
                   </button>
                ))}
@@ -256,14 +255,14 @@ export default function ExecutiveDashboard() {
                <AreaChart data={VELOCITY_DATA}>
                   <defs>
                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
                      </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis 
                      dataKey="name" 
-                     stroke="rgba(255,255,255,0.1)" 
+                     stroke="#94a3b8" 
                      fontSize={10} 
                      fontWeight="black"
                      tickLine={false} 
@@ -271,7 +270,7 @@ export default function ExecutiveDashboard() {
                      dy={15}
                   />
                   <YAxis 
-                     stroke="rgba(255,255,255,0.1)" 
+                     stroke="#94a3b8" 
                      fontSize={10} 
                      fontWeight="black"
                      tickLine={false} 
@@ -279,14 +278,14 @@ export default function ExecutiveDashboard() {
                      dx={-15}
                   />
                   <Tooltip 
-                     contentStyle={{ backgroundColor: "#080a0e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", boxShadow: "0 10px 40px rgba(0,0,0,0.5)" }}
-                     itemStyle={{ color: "#fff", fontWeight: "black" }}
+                     contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "16px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
+                     itemStyle={{ color: "#1e293b", fontWeight: "black" }}
                   />
                   <Area 
                      type="monotone" 
                      dataKey="value" 
-                     stroke="#6366f1" 
-                     strokeWidth={4}
+                     stroke="#4f46e5" 
+                     strokeWidth={3}
                      fillOpacity={1} 
                      fill="url(#colorValue)" 
                      animationDuration={2000}

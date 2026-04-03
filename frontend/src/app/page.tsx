@@ -7,12 +7,5 @@ import { redirect } from "next/navigation";
  * If a valid dvt_token cookie is present, redirect to dashboard.
  */
 export default function RootPage() {
-  const cookieStore = cookies();
-  const token = cookieStore.get("dvt_token");
-
-  if (token) {
-    redirect("/dashboard");
-  }
-
   return <LandingPage />;
 }

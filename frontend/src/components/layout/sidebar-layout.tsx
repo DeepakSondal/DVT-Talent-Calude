@@ -28,10 +28,10 @@ function SidebarItem({ icon: Icon, label, href, active, collapsed }: SidebarItem
       <div className={cn(
         "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 cursor-pointer relative",
         active 
-          ? "bg-primary/10 text-primary border border-primary/20 shadow-indigo-glow" 
-          : "text-white/40 hover:text-white hover:bg-white/[0.04] border border-transparent"
+          ? "bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm" 
+          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent"
       )}>
-        <Icon className={cn("w-5 h-5 shrink-0 transition-colors", active ? "text-primary" : "text-white/40 group-hover:text-white/70")} />
+        <Icon className={cn("w-5 h-5 shrink-0 transition-colors", active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} />
         
         {!collapsed && (
           <motion.span 
@@ -46,7 +46,7 @@ function SidebarItem({ icon: Icon, label, href, active, collapsed }: SidebarItem
         {active && (
           <motion.div 
             layoutId="sidebar-active"
-            className="absolute -left-1 w-1 h-6 bg-primary rounded-r-full shadow-indigo-glow shadow-[0_0_10px_rgba(99,102,241,0.5)]" 
+            className="absolute -left-1 w-1 h-6 bg-indigo-600 rounded-r-full shadow-lg shadow-indigo-600/20" 
           />
         )}
       </div>
@@ -118,7 +118,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
         {/* Navigation Section */}
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto hidden-scrollbar">
-          {!collapsed && <p className="text-[10px] font-black text-slate-300 px-3 py-2 uppercase tracking-[0.2em] mb-1">Platform</p>}
+          {!collapsed && <p className="text-[10px] font-black text-slate-400 px-3 py-4 uppercase tracking-[0.2em] mb-1">Platform</p>}
           {MENU_ITEMS.filter(item => !item.adminOnly || user?.role === "admin").map((item) => (
             <SidebarItem 
               key={item.href} 
@@ -129,7 +129,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           ))}
 
           <div className="pt-8">
-            {!collapsed && <p className="text-[10px] font-black text-slate-300 px-3 py-2 uppercase tracking-[0.2em] mb-1">Preferences</p>}
+            {!collapsed && <p className="text-[10px] font-black text-slate-400 px-3 py-4 uppercase tracking-[0.2em] mb-1">Preferences</p>}
             {SYSTEM_ITEMS.map((item) => (
               <SidebarItem 
                 key={item.href} 
@@ -185,7 +185,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               )} />
               <span className={cn(
                  "text-[10px] font-black uppercase tracking-widest",
-                 isConnected ? "text-emerald-600" : "text-rose-600"
+                 isConnected ? "text-emerald-500" : "text-rose-500"
               )}>
                  {isConnected ? "Live Engine" : "Offline"}
               </span>
@@ -195,23 +195,23 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               onClick={() => setStreamOpen(!streamOpen)}
               className={cn(
                 "w-11 h-11 rounded-2xl flex items-center justify-center border transition-all relative group",
-                streamOpen ? "bg-primary border-primary/20 shadow-lg shadow-primary/20" : "bg-slate-50 border-slate-200 hover:bg-white hover:shadow-md"
+                streamOpen ? "bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-600/20" : "bg-slate-50 border-slate-200 hover:bg-white hover:shadow-md"
               )}
             >
-              <Zap className={cn("w-5 h-5 transition-colors", streamOpen ? "text-white" : "text-slate-400 group-hover:text-primary")} />
+              <Zap className={cn("w-5 h-5 transition-colors", streamOpen ? "text-white" : "text-slate-400 group-hover:text-indigo-600")} />
               {isConnected && !streamOpen && (
-                 <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-primary ring-4 ring-white" />
+                 <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-indigo-600 ring-4 ring-white" />
               )}
             </button>
             
-            <div className="h-10 w-[1px] bg-slate-200" />
+            <div className="h-10 w-[1px] bg-slate-100" />
             
             <button className="flex items-center gap-3 p-1.5 pr-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all group active:scale-95">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[10px] font-black text-white shadow-md">
                 {user?.full_name?.split(' ').map(n => n[0]).join('') || "?"}
               </div>
               <div className="flex flex-col items-start leading-tight">
-                <span className="text-xs font-bold text-slate-900 group-hover:text-primary transition-colors">{user?.full_name || "Synchronizing..."}</span>
+                <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{user?.full_name || "Synchronizing..."}</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user?.role || "Operator"}</span>
               </div>
             </button>

@@ -21,11 +21,11 @@ export function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
 
-  // Look for token in cookies (preferred) or check if it could be in localStorage
-  // Since localStorage is not accessible in middleware, we use a cookie set on login
-  const token = request.cookies.get("dvt_access_token")?.value;
+  // Look for token in cookies (preferred standard: dvt_token)
+  const token = request.cookies.get("dvt_token")?.value;
 
   if (!token) {
+    // 🛡️ SDET: Secure redirection to login for protected assets
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);

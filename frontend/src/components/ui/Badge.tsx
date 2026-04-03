@@ -7,12 +7,12 @@ interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const Badge = ({ className, variant = "primary", ...props }: BadgeProps) => {
   const variants = {
-    primary: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
-    secondary: "bg-white/5 text-white/70 border-white/10",
-    success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    danger: "bg-rose-500/10 text-rose-400 border-rose-500/20",
-    outline: "bg-transparent text-white/50 border-white/10",
+    primary: "bg-indigo-50 text-indigo-600 border-indigo-100",
+    secondary: "bg-slate-100 text-slate-600 border-slate-200",
+    success: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    warning: "bg-amber-50 text-amber-600 border-amber-100",
+    danger: "bg-rose-50 text-rose-600 border-rose-100",
+    outline: "bg-transparent text-slate-500 border-slate-200",
   };
 
   return (

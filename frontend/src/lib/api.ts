@@ -16,8 +16,13 @@ const api: AxiosInstance = axios.create({
 // Request interceptor: attach JWT
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("dvt_access_token");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    // 🛡️ SDET: Normalizing to project-standard dvt_token
+    let token = localStorage.getItem("dvt_token");
+    if (token) {
+      // Ensure we don't double-prefix if 'Bearer ' is already present
+      const finalToken = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+      config.headers.Authorization = finalToken;
+    }
   }
   return config;
 });
@@ -28,9 +33,9 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("dvt_access_token");
+        localStorage.removeItem("dvt_token");
         localStorage.removeItem("dvt_refresh_token");
-        document.cookie = "dvt_access_token=; path=/; max-age=0; SameSite=Lax";
+        document.cookie = "dvt_token=; path=/; max-age=0; SameSite=Lax";
         window.location.href = "/auth/login";
       }
     }
@@ -138,27 +143,27 @@ export const authApi = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
     if (typeof window !== "undefined") {
-      localStorage.setItem("dvt_access_token", res.data.access_token);
+      localStorage.setItem("dvt_token", res.data.access_token);
       localStorage.setItem("dvt_refresh_token", res.data.refresh_token);
-      document.cookie = `dvt_access_token=${res.data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = `dvt_token=${res.data.access_token}; path=/; max-age=86400; SameSite=Lax`;
     }
     return res.data;
   },
   register: async (data: { email: string; password: string; full_name: string }) => {
     const res = await api.post<AuthResponse>("/auth/register", data);
     if (typeof window !== "undefined") {
-      localStorage.setItem("dvt_access_token", res.data.access_token);
+      localStorage.setItem("dvt_token", res.data.access_token);
       localStorage.setItem("dvt_refresh_token", res.data.refresh_token);
-      document.cookie = `dvt_access_token=${res.data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = `dvt_token=${res.data.access_token}; path=/; max-age=86400; SameSite=Lax`;
     }
     return res.data;
   },
   me: () => api.get("/auth/me").then((r) => r.data),
   logout: () => {
     if (typeof window !== "undefined") {
-      localStorage.removeItem("dvt_access_token");
+      localStorage.removeItem("dvt_token");
       localStorage.removeItem("dvt_refresh_token");
-      document.cookie = "dvt_access_token=; path=/; max-age=0; SameSite=Lax";
+      document.cookie = "dvt_token=; path=/; max-age=0; SameSite=Lax";
     }
   },
 };

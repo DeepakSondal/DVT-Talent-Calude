@@ -63,10 +63,10 @@ export default function LandingPage() {
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8 text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-            <Link href="#features" className="hover:text-primary transition-colors">Agents</Link>
-            <Link href="#how-it-works" className="hover:text-primary transition-colors">Workflow</Link>
-            <Link href="#preview" className="hover:text-primary transition-colors">Platform</Link>
+          <div className="hidden md:flex items-center gap-8 text-slate-500 font-black uppercase text-[10px] tracking-widest">
+            <Link href="#features" className="hover:text-indigo-600 transition-colors">Agents</Link>
+            <Link href="#how-it-works" className="hover:text-indigo-600 transition-colors">Workflow</Link>
+            <Link href="#preview" className="hover:text-indigo-600 transition-colors">Platform</Link>
             <Link href="/dashboard">
               <Button variant="primary" size="sm" className="shadow-lg shadow-indigo-600/10">Launch Console</Button>
             </Link>
@@ -235,7 +235,7 @@ export default function LandingPage() {
                       viewport={{ once: true }}
                       className="flex gap-8 items-start group"
                     >
-                      <span className="text-5xl font-black text-slate-50 group-hover:text-indigo-50 transition-colors">{s.step}</span>
+                      <span className="text-5xl font-black text-slate-100 group-hover:text-indigo-100 transition-colors">{s.step}</span>
                       <div className="space-y-2 pt-1">
                         <h4 className="text-lg font-black text-slate-900">{s.title}</h4>
                         <p className="text-slate-400 leading-relaxed font-medium">{s.desc}</p>
@@ -317,7 +317,7 @@ export default function LandingPage() {
               className="text-5xl lg:text-9xl font-black leading-tight tracking-tighter text-slate-950"
             >
               Ready to <br />
-              <span className="text-slate-200">Launch?</span>
+              <span className="text-slate-300">Launch?</span>
             </motion.h2>
             <motion.div
               initial={{ y: 20, opacity: 0 }}
