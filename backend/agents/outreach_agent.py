@@ -289,17 +289,17 @@ Return JSON:
             self.log.error("gmail_send_failed", error=str(e))
             return {"success": False, "error": str(e)}
 
-    def write_bulk_campaign(
+    async def write_bulk_campaign(
         self,
         outreach_type: str,
         recipients: List[Dict[str, Any]],
         context: Dict[str, Any],
         send: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Write emails for a bulk campaign"""
+        """Write emails for a bulk campaign (Asynchronous)"""
         results = []
         for recipient in recipients:
-            result = self.run(outreach_type, recipient, context, send_email=send)
+            result = await self.run(outreach_type, recipient, context, send_email=send)
             result["recipient_id"] = recipient.get("id") or recipient.get("email")
             results.append(result)
         return results

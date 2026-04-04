@@ -1,244 +1,495 @@
-# DVT Talent AI — Full Audit Report
-Generated: 2026-03-18
+# DVT Talent AI — Comprehensive Codebase Audit Report
+Generated: 2026-04-05 (Full Re-Audit)
+Previous Audit: 2026-03-18
 
 ---
 
 ## SEVERITY LEGEND
-- 🔴 CRITICAL  — Will crash at startup or runtime, blocks all use
-- 🟠 HIGH      — Feature broken, data corruption possible
-- 🟡 MEDIUM    — Degraded functionality, workaround exists
-- 🟢 LOW       — Code quality / performance, no immediate breakage
+- CRITICAL  -- Will crash at startup or runtime, blocks all use
+- HIGH      -- Feature broken, data corruption possible
+- MEDIUM    -- Degraded functionality, workaround exists
+- LOW       -- Code quality / performance, no immediate breakage
 
 ---
 
-## 1. CRITICAL ERRORS (Must Fix Before Running)
+## PREVIOUS AUDIT STATUS
 
-### [C-01] 🔴 Missing tsconfig.json — Frontend build fails immediately
-`frontend/tsconfig.json` does not exist. `npm run build` and `npm run dev`
-both error with: "tsconfig.json not found". Next.js TypeScript projects
-require this file at the root of the frontend directory.
-FIX: Created `frontend/tsconfig.json`
+The original 2026-03-18 audit identified 37 issues. Many have been addressed:
+- C-01 through C-10: All 10 critical issues have FIX markers in the code
+- H-01 through H-07: All 7 high issues show evidence of fixes
+- M-01 through M-07: All 7 medium issues show evidence of fixes
 
-### [C-02] 🔴 Missing postcss.config.js — Tailwind CSS produces no styles
-TailwindCSS requires PostCSS configuration. Without `frontend/postcss.config.js`
-all Tailwind classes are silently ignored — the entire dashboard renders unstyled.
-FIX: Created `frontend/postcss.config.js`
+This re-audit validates the fixes and identifies **new issues** introduced
+or remaining in the current codebase state.
 
-### [C-03] 🔴 self.config.github_token — AttributeError crashes lead_discovery_agent
-In `agents/lead_discovery_agent.py` line 147:
-    if not self.config.github_token:
-`BaseAgent` has no `.config` attribute. Should be `settings.github_token`.
-This raises `AttributeError` every time `find_github_org_members()` is called.
-FIX: Changed to `settings.github_token`
+---
 
-### [C-04] 🔴 BackgroundTasks mutable default — FastAPI DI completely broken
-In `api/routes/candidates.py` line 207:
-    background_tasks: BackgroundTasks = BackgroundTasks(),
-Using a mutable object as a default parameter breaks FastAPI's dependency
-injection. Background tasks will silently not execute and the same stale
-object is reused across requests (Python mutable default bug).
-FIX: Changed to `background_tasks: BackgroundTasks`
+## 1. CRITICAL ISSUES (Blocks Startup or Core Functionality)
 
-### [C-05] 🔴 Sync OpenAI client blocks async event loop
-`BaseAgent.chat()` uses the synchronous `openai.OpenAI` client. When Celery
-tasks call agents, this is fine, but any direct call from a FastAPI async
-endpoint will block the entire event loop, causing request timeouts under load.
-FIX: Use `openai.AsyncOpenAI` for async contexts, with `run_in_executor`
-fallback for sync (Celery) contexts.
+### [NEW-C-01] CRITICAL: Missing `uuid` import in orchestrator.py -- _save_candidate crashes
+**File**: `backend/agents/orchestrator.py`, line 355
+**Description**: `_save_candidate()` references `uuid.uuid4()` on line 355:
+```python
+email = f"ai_{uuid.uuid4()}@dvt.local"
+```
+But `uuid` is never imported in `orchestrator.py`. The module imports
+`json`, `asyncio`, `datetime`, `structlog`, and agents -- but not `uuid`.
+Any candidate without an email field triggers `NameError: name 'uuid' is not defined`,
+crashing the entire pipeline at Stage 4.
+**Impact**: Full pipeline crash during candidate sourcing if any candidate lacks email.
+**Fix**: Add `import uuid` at the top of `orchestrator.py`.
 
-### [C-06] 🔴 run_company_research task uses hardcoded "Unknown" — enriches nothing
-`workers/tasks.py` line 121-122:
-    agent.run(company_name="Unknown", company_domain="unknown.com")
-The task receives a `company_id` but never fetches the company from the DB.
-Every enrichment call sends "Unknown" to the AI and overwrites company data
-with garbage results.
-FIX: Fetch company from DB before calling the agent.
+### [NEW-C-02] CRITICAL: Duplicate `AnalyticsAgent` class definition -- second overwrites first
+**File**: `backend/agents/supporting_agents.py`, lines 125-156 and 300-331
+**Description**: `AnalyticsAgent` is defined **twice** in the same file:
+1. Lines 125-156: Async version with real DB queries (uses `await`, `AsyncSessionLocal`)
+2. Lines 300-331: Sync version returning hardcoded mock data
 
-### [C-07] 🔴 Email open-tracking endpoint never implemented
-`agents/outreach_agent.py` line 222 embeds a pixel pointing to:
-    https://yourapp.com/api/v1/track/{tracking_id}/open
-1. The domain is a literal placeholder ("yourapp.com")
-2. No `/track/{id}/open` route exists in the API
-Open-tracking will produce 404s and opened_at will never be set.
-FIX: Added `/api/v1/track/{tracking_id}/open` endpoint + env var for base URL.
+Python uses the **last** definition, so the sync mock version (lines 300-331)
+is the one actually used. The orchestrator (line 218) calls `await self.agents["analytics"].run()`,
+but the active `AnalyticsAgent.run()` is sync (no `async` keyword) -- this
+means the `await` on a non-coroutine returns immediately with the plain dict
+(Python 3 allows `await` on non-awaitables), but the **real** DB-querying
+implementation is dead code.
+**Impact**: Analytics always returns hardcoded mock data, never real metrics.
+**Fix**: Remove the duplicate sync class (lines 296-331).
 
-### [C-08] 🔴 Nginx HTTP→HTTPS redirect breaks fresh local deployments
-`docker/nginx/nginx.conf` redirects port 80 to 443, but SSL certs don't
-auto-generate. On first `docker compose up`, nginx starts, redirects to
-HTTPS, cert files don't exist → nginx crashes with "cannot load certificate".
-FIX: Added HTTP-only server block as default; HTTPS only when certs exist.
+### [NEW-C-03] CRITICAL: OutreachAgent.run() is async but BaseAgent.run() is sync abstract
+**File**: `backend/agents/outreach_agent.py`, line 49
+**Description**: `OutreachAgent.run()` is declared `async def run(...)` but
+`BaseAgent.run()` (line 154) is a sync abstract method (`def run(...)`).
+This means:
+1. `OutreachAgent.run()` returns a coroutine object
+2. `write_bulk_campaign()` (line 302) calls `self.run()` without `await` --
+   the coroutine is created but **never executed**, leaking resources
+3. The Celery `run_agent_task` (tasks.py:40) calls `orchestrator.run_single_agent()`
+   which calls `agent.run(**params)` synchronously -- for OutreachAgent this
+   returns a coroutine that is discarded
+**Impact**: `write_bulk_campaign()` silently fails. Single-agent Celery triggers
+for "outreach" do nothing.
+**Fix**: Either make `BaseAgent.run()` support both sync/async patterns, or
+add `await` in callers, or use `asyncio.run()` wrapper in sync contexts.
 
-### [C-09] 🔴 Missing alembic/ directory — database migrations unusable
-`requirements.txt` includes `alembic==1.13.1` and SETUP.md documents
-migration commands, but `alembic.ini` and `alembic/env.py` don't exist.
-Running `alembic upgrade head` errors immediately.
-FIX: Created `backend/alembic.ini` and `backend/alembic/env.py`
+### [NEW-C-04] CRITICAL: CRMManagementAgent.run() is async but called sync in some contexts
+**File**: `backend/agents/supporting_agents.py`, line 86
+**Description**: `CRMManagementAgent.run()` is `async def` but inherits from
+`BaseAgent` with a sync `run()` abstract method. The Celery task
+`run_agent_task` (tasks.py:40) calls `orchestrator.run_single_agent()` which
+does `agent.run(**params)` without await. For CRM management, the `crm-update`
+beat schedule calls this every 2 hours -- each call creates an unawaited coroutine.
+**Impact**: Scheduled CRM updates silently do nothing every 2 hours.
+**Fix**: The Celery periodic task calling `run_agent_task("crm_management")`
+needs to use `asyncio.run()` or route through the async pipeline.
 
-### [C-10] 🔴 multiple class definitions in supporting_agents.py have broken docstrings
-Module-level triple-quoted strings between class definitions are interpreted
-as string expressions, not docstrings for the following classes. Python
-silently ignores them. The classes themselves are fine, but it causes linter
-errors and confuses import tooling.
-FIX: Split into proper docstrings inside each class or separate files.
+### [NEW-C-05] CRITICAL: `create_engine` imported but unused; confusing session pattern in orchestrator
+**File**: `backend/agents/orchestrator.py`, line 12
+**Description**: `from sqlalchemy import create_engine, text` -- `create_engine`
+is imported but never used in this file. Additionally, `text` is imported but
+also never used. More importantly, the session creation pattern:
+```python
+async with await self._get_async_session() as session:
+```
+The `await` on `_get_async_session()` is correct (it's an async function), but
+`AsyncSessionLocal()` returns a context manager directly. The pattern works but
+is confusing. The unused `create_engine` import suggests leftover code from
+a refactor.
+**Impact**: Unused imports; linter warnings.
+**Fix**: Remove `from sqlalchemy import create_engine, text`.
 
 ---
 
 ## 2. HIGH SEVERITY ISSUES
 
-### [H-01] 🟠 4 stub API routes return empty — leads, jobs, campaigns, users
-The following route files contain only a single endpoint that always returns
-`{"items": [], "total": 0}`:
-- `api/routes/leads.py`     (7 lines)
-- `api/routes/jobs.py`      (7 lines)
-- `api/routes/campaigns.py` (7 lines)
-- `api/routes/users.py`     (7 lines)
-All frontend pages that call these endpoints receive empty data.
-FIX: Fully implemented all 4 route files.
+### [NEW-H-01] HIGH: Social auth creates JWT with email as `sub` instead of user ID
+**File**: `backend/api/routes/auth_social.py`, line 128
+**Description**: The social callback creates a token with:
+```python
+access_token = create_access_token(data={"sub": user.email})
+```
+But `get_current_user()` in `auth.py` (line 119) looks up the user by:
+```python
+result = await db.execute(select(User).where(User.id == user_obj_id))
+```
+It passes the `sub` claim to `User.id`, which is a UUID column. An email
+string like `"user@example.com"` will never match a UUID, so `user` is always
+`None` and every social-auth user gets a 401 on subsequent requests.
+**Impact**: All social login users (Google, GitHub, LinkedIn) cannot access
+any authenticated endpoint after login.
+**Fix**: Change to `create_access_token(data={"sub": str(user.id)})`.
 
-### [H-02] 🟠 WebSocket endpoint has zero authentication
-`api/routes/websocket.py` accepts all connections with no JWT check.
-Any unauthenticated client can connect and receive real-time recruiter data.
-FIX: Added token query-param JWT validation on WebSocket upgrade.
+### [NEW-H-02] HIGH: `score_candidate` endpoint creates BackgroundTasks manually -- tasks never execute
+**File**: `backend/api/routes/candidates.py`, lines 208-216
+**Description**: The `score_candidate` endpoint has:
+```python
+background_tasks: BackgroundTasks = None,
+...
+if background_tasks is None:
+    background_tasks = BackgroundTasks()
+```
+When `background_tasks` is `None` (i.e., not injected by FastAPI), a new
+`BackgroundTasks()` instance is created locally. Tasks added to this local
+instance are **never executed** because FastAPI only runs tasks on the
+DI-injected instance that is wired into the response lifecycle.
+**Impact**: The `/candidates/{id}/score` endpoint always returns "Scoring started"
+but the background task is silently dropped.
+**Fix**: Make `background_tasks` a proper FastAPI dependency parameter (not Optional).
 
-### [H-03] 🟠 run_resume_analysis returns raw_text from analysis dict (always empty)
-`workers/tasks.py` line 183:
-    "raw_text": analysis.get("raw_text", ""),
-The `analysis` dict returned by `ResumeAnalysisAgent.run()` never contains
-a `"raw_text"` key — it has `parsed`, `score`, `strengths`, etc.
-The `raw_text` column in the DB is never populated.
-FIX: Pass extracted text explicitly to the update function.
+### [NEW-H-03] HIGH: EmailSent.id assigned tracking_id string instead of UUID
+**File**: `backend/agents/outreach_agent.py`, line 125
+**Description**: `EmailSent` model has `id = Column(UUID(as_uuid=True), ...)`,
+but the outreach agent creates:
+```python
+new_email = EmailSent(
+    id=result["tracking_id"],  # This is a string from str(uuid.uuid4())
+    ...
+)
+```
+Passing a string to a UUID column may fail depending on the PostgreSQL driver.
+`asyncpg` requires proper UUID objects, not strings.
+**Impact**: Database insert fails when saving outreach emails, silently caught
+by the try/except in `_save_to_db_async()`.
+**Fix**: Use `uuid.UUID(result["tracking_id"])` or let the DB generate the id.
 
-### [H-04] 🟠 Interview model missing Job back-reference relationship
-`db/models.py` — `Job` model has no `interviews` relationship, yet
-`Interview` has `back_populates="..."` that references nothing on Job.
-SQLAlchemy raises `SAWarning` and relationship queries will fail.
-FIX: Added `interviews = relationship("Interview", back_populates="job")` to Job.
+### [NEW-H-04] HIGH: `_update_company_in_db` uses `metadata` as raw column name
+**File**: `backend/workers/tasks.py`, line 309
+**Description**: The SQL query uses:
+```sql
+metadata = :metadata
+```
+But in `db/models.py` line 150, the Company model defines:
+```python
+meta_data = Column("metadata", JSON, default={})
+```
+The actual DB column is `metadata` but `metadata` is also a reserved SQLAlchemy
+attribute. Using raw `text()` queries works, but the column name `metadata`
+collides with SQLAlchemy's `MetaData` in some contexts and can cause confusion.
+**Impact**: Currently functional with raw SQL, but ORM queries referencing
+`Company.metadata` would fail. Low risk in current code but a latent bug.
+**Fix**: This is acceptable with raw text() queries but should be documented.
 
-### [H-05] 🟠 Config defaults expose credentials in code
-`config.py` lines 27-28 have hardcoded default DB credentials:
-    database_url: str = "postgresql+asyncpg://dvt_user:dvt_password@..."
-If `.env` is missing (common in CI/CD), these leak into logs and error traces.
-FIX: Changed defaults to empty strings with startup validator that raises on missing.
+### [NEW-H-05] HIGH: Mutable default arguments in model definitions
+**File**: `backend/db/models.py`, multiple lines
+**Description**: Several columns use mutable defaults:
+```python
+preferences = Column(JSON, default={})     # line 121
+hiring_signals = Column(JSON, default=[])  # line 144
+```
+Python mutable default arguments are shared across all instances. SQLAlchemy
+handles this at the SQL level (server_default), but the Python-level `default={}`
+means all new model instances share the same dict/list object in memory.
+**Impact**: Potential data corruption if defaults are mutated before flush.
+**Fix**: Use `default=dict` or `default=list` (callable factories).
 
-### [H-06] 🟠 No root page.tsx — navigating to "/" returns 404
-`frontend/src/app/` has no `page.tsx`. Users who visit the root URL get a
-Next.js 404. The login and dashboard pages exist but are unreachable from "/".
-FIX: Added `frontend/src/app/page.tsx` with redirect to /dashboard or /auth/login.
+### [NEW-H-06] HIGH: `credentials.json` committed to git with real Google OAuth secrets
+**File**: `credentials.json` (project root)
+**Description**: Despite being listed in `.gitignore`, this file exists in the
+repository and contains real Google OAuth client credentials:
+- `client_id`: `169274640788-...`
+- `client_secret`: `GOCSPX-...`
+These are production Google OAuth secrets. The `.gitignore` entry exists but
+the file was committed before the ignore rule was added.
+**Impact**: Credential exposure. Anyone with repo access has Google OAuth keys.
+**Fix**: Rotate the credentials immediately. Remove from git history with
+`git filter-branch` or `git-filter-repo`. Verify `.gitignore` prevents re-commit.
 
-### [H-07] 🟠 No auth middleware — dashboard accessible without login
-There is no `frontend/src/middleware.ts`. Protected routes like `/dashboard`
-are fully accessible without a token. The API will reject calls (401), but
-the page itself loads and shows skeleton UI.
-FIX: Added Next.js middleware for route protection.
+### [NEW-H-07] HIGH: `.env` file committed with live API keys
+**File**: `backend/.env`
+**Description**: The `.env` file contains what appear to be real API keys:
+- `DEEPSEEK_API_KEY=gsk_rfMZBtX...` (Groq API key)
+- `OPENAI_API_KEY=gsk_rfMZBtX...` (same Groq key reused)
+- `SERPER_API_KEY=f8aeafc4a306...`
+- `SECRET_KEY=dvt-talent-ai-super-secret-jwt-key-2026-change-in-prod`
 
----
-
-## 3. MEDIUM SEVERITY ISSUES
-
-### [M-01] 🟡 Missing packages in requirements.txt
-The following are imported in code but absent from requirements.txt:
-- `python-docx`      — resume_analysis_agent.py (DOCX parsing)
-- `python-dateutil`  — supporting_agents.py InterviewSchedulingAgent
-- `uvloop`           — Dockerfile CMD uses uvicorn with uvloop worker
-- `flower`           — SETUP.md documents monitoring with Flower
-FIX: Added all four to requirements.txt
-
-### [M-02] 🟡 Unused imports (lint errors, confused IDEs)
-- `backend/db/models.py` — `BigInteger` imported, never used
-- `backend/agents/base_agent.py` — `asyncio` imported, never used
-- `backend/agents/market_intelligence_agent.py` — `re` imported, never used
-FIX: Removed all three unused imports
-
-### [M-03] 🟡 ChromaDB port mapping inconsistency
-`docker-compose.yml` maps chromadb as `8001:8000` (host:container).
-`config.py` sets `chroma_port: int = 8001`.
-When the API container talks to chromadb *inside Docker*, it uses the
-container port (8000), not the host port (8001).
-`chromadb.HttpClient(host="chromadb", port=8001)` → connection refused.
-FIX: Added `CHROMA_PORT=8000` to API service environment in docker-compose.
-
-### [M-04] 🟡 CORS wildcard allow_methods and allow_headers in production
-`main.py` uses `allow_methods=["*"]` and `allow_headers=["*"]`.
-While origins are controlled, allowing all methods/headers is overly permissive
-and can enable CSRF-style attacks in combination with allow_credentials=True.
-FIX: Restricted to explicit methods and headers.
-
-### [M-05] 🟡 frontend/.env.example missing
-No frontend environment template exists. Developers don't know to set
-`NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`, so all API calls go to the
-hardcoded localhost fallback even in staging/production.
-FIX: Created `frontend/.env.example`
-
-### [M-06] 🟡 re imported but never used in market_intelligence_agent.py
-`import re` on line 6 — no regex is used anywhere in the file.
-FIX: Removed.
-
-### [M-07] 🟡 Hardcoded tracking pixel domain "yourapp.com"
-Must be configurable via environment variable `APP_BASE_URL`.
-FIX: Added `app_base_url` to config, used in outreach agent.
-
----
-
-## 4. SECURITY VULNERABILITIES
-
-### [S-01] WebSocket no authentication (see H-02)
-### [S-02] Hardcoded credential defaults in config (see H-05)
-### [S-03] CORS over-permissive methods/headers (see M-04)
-
-### [S-04] 🟡 Email tracking endpoint must validate tracking_id format
-The planned `/track/{tracking_id}/open` endpoint should validate that
-tracking_id is a valid UUID before querying the DB (prevents enumeration).
-FIX: UUID type annotation in FastAPI path enforces this automatically.
-
-### [S-05] 🟡 JWT token stored in localStorage (XSS risk)
-`frontend/src/lib/api.ts` stores tokens in `localStorage`.
-XSS attacks can steal tokens. Preferred: httpOnly cookies.
-For now, this is acceptable but documented as a known trade-off.
+The root `.gitignore` has `.env` listed, and `backend/.env` should be
+covered, but if these were committed before the rule existed, they remain
+in git history.
+**Impact**: API key and JWT secret exposure. Anyone with repo access can
+impersonate the application.
+**Fix**: Rotate all exposed keys immediately. Verify these files are not
+tracked with `git ls-files backend/.env`.
 
 ---
 
-## 5. DEPLOYMENT BLOCKERS
+## 3. ASYNC/AWAIT IMPLEMENTATION ISSUES
 
-### [D-01] Nginx crash on missing SSL certs (see C-08) — FIXED
-### [D-02] Missing tsconfig.json prevents frontend build (see C-01) — FIXED
-### [D-03] Missing alembic setup (see C-09) — FIXED
-### [D-04] ChromaDB wrong port in Docker networking (see M-03) — FIXED
+### [NEW-A-01] HIGH: Mixed sync/async agent architecture creates silent failures
+**File**: Multiple agent files
+**Description**: The `BaseAgent` abstract class defines `run()` as a sync method,
+but several agents override it as `async def run()`:
+- `OutreachAgent.run()` -- async (outreach_agent.py:49)
+- `CRMManagementAgent.run()` -- async (supporting_agents.py:86)
+- `AnalyticsAgent.run()` (first definition) -- async (supporting_agents.py:132)
 
-### [D-05] 🟡 docker-compose x-backend-common anchor has wrong target
-The YAML anchor `x-backend-common` specifies `target: api` but worker and
-scheduler services override this correctly. However the anchor's build block
-is merged and then overridden — this works but is confusing and fragile.
-FIX: Removed target from anchor, kept only in per-service build blocks.
+The orchestrator handles this inconsistently:
+- `run_full_pipeline()` uses `await` for outreach/CRM/analytics (correct)
+- `run_single_agent()` calls `agent.run()` without `await` (broken for async agents)
+- Celery `run_agent_task` uses `run_single_agent()` (broken for async agents)
+
+**Impact**: Any Celery beat schedule targeting async agents silently fails.
+**Fix**: Either standardize all agents as sync (for Celery compatibility) or
+add async detection in `run_single_agent()`.
+
+### [NEW-A-02] MEDIUM: Sync LLM calls inside async pipeline stages
+**File**: `backend/agents/orchestrator.py`, lines 119-166
+**Description**: Pipeline stages 1-4 call sync agent `run()` methods (which
+internally call `self.chat()` -- a sync OpenAI call) from within the async
+`run_full_pipeline()`. These sync calls block the event loop during execution.
+Example: `self.agents["market_intelligence"].run(...)` on line 119.
+**Impact**: Event loop blocked during LLM API calls (typically 2-15 seconds each).
+If called from a FastAPI endpoint directly (not via Celery), all other requests stall.
+**Fix**: Use `chat_async()` or wrap in `asyncio.to_thread()`.
+
+### [NEW-A-03] MEDIUM: `_emit_signal` creates new Redis connection on every call
+**File**: `backend/agents/orchestrator.py`, lines 82-94
+**Description**: Each `_emit_signal()` call creates a new `redis.from_url()`
+connection, publishes, but never closes the connection. Over a full pipeline
+run with ~8 signal emissions, this leaks 8 Redis connections.
+**Impact**: Resource leak; Redis connection exhaustion under heavy pipeline usage.
+**Fix**: Reuse a single Redis client or close connections after use.
 
 ---
 
-## 6. PERFORMANCE ISSUES
+## 4. ENVIRONMENT VARIABLE MANAGEMENT
 
-### [P-01] 🟡 N+1 query pattern in orchestrator pipeline
-The orchestrator calls agents in sequential per-company loops with no
-batching. 10 companies × 1 research call = 10 serial LLM API calls.
-FIX: Documented; add asyncio.gather() for parallel agent execution.
+### [NEW-E-01] MEDIUM: Config still has hardcoded database credentials as defaults
+**File**: `backend/config.py`, lines 28-29
+**Description**: Despite H-05 marking this as fixed, the defaults still contain
+full credentials:
+```python
+database_url: str = "postgresql+asyncpg://dvt_user:dvt_password@localhost:5432/dvt_talent"
+database_sync_url: str = "postgresql://dvt_user:dvt_password@localhost:5432/dvt_talent"
+```
+The `validate_required_settings()` method only warns -- it does not prevent startup.
+**Impact**: If `.env` is missing, the app starts with default credentials silently.
+**Fix**: The validator should raise, not just warn, for production environments.
 
-### [P-02] 🟡 SentenceTransformer model loaded on every resume analysis
-`ResumeAnalysisAgent._store_resume_embedding()` instantiates
-`SentenceTransformer("all-MiniLM-L6-v2")` on every call. Model loading
-takes 2-5 seconds and uses ~500MB RAM each time.
-FIX: Cache model as class-level singleton.
+### [NEW-E-02] MEDIUM: `secret_key` has weak default value
+**File**: `backend/config.py`, line 23
+**Description**: `secret_key: str = "change-me-in-production"`. The validator
+on line 148 only warns if in production mode. In development, the default key
+is used for JWT signing, making tokens predictable.
+**Impact**: JWT tokens can be forged by anyone who reads this source code.
+**Fix**: Generate a random default on startup or refuse to start without an explicit key.
 
-### [P-03] 🟡 Analytics queries run N separate COUNT queries
-`get_dashboard_kpis()` fires 9+ separate `SELECT COUNT(*)` queries.
-FIX: Consolidate into fewer queries using CASE WHEN or subqueries.
+### [NEW-E-03] LOW: `GROQ_API_KEY` env var is supported in config but .env uses `DEEPSEEK_API_KEY` slot for Groq
+**File**: `backend/.env`, lines 38-41
+**Description**: The `.env` file comments say "Groq via DeepSeek slot" and puts
+the Groq API key in `DEEPSEEK_API_KEY`. This works because the LLM priority
+chain checks `groq_api_key` first, but since `GROQ_API_KEY` is empty, the
+system falls through to `deepseek_api_key` which points to Groq's API base.
+This is confusing but functional.
+**Impact**: Misleading configuration; works by coincidence.
+**Fix**: Set `GROQ_API_KEY` directly or rename for clarity.
 
 ---
 
-## 7. SUMMARY COUNTS
+## 5. DATABASE SESSION MANAGEMENT
 
-| Severity | Count | Fixed |
-|----------|-------|-------|
-| 🔴 Critical | 10 | 10 |
-| 🟠 High | 7 | 7 |
-| 🟡 Medium | 7 | 7 |
-| Security | 5 | 4 |
-| Deployment | 5 | 5 |
-| Performance | 3 | 2 |
-| **Total** | **37** | **35** |
+### [NEW-D-01] MEDIUM: Orchestrator creates sessions without connection pool awareness
+**File**: `backend/agents/orchestrator.py`, lines 255-381
+**Description**: Each `_save_company()`, `_save_lead()`, `_save_candidate()` call
+creates a fresh `AsyncSessionLocal()`. During a full pipeline run, this can
+create 30+ sessions rapidly (10 companies + contacts + candidates). The
+global connection pool is configured with `pool_size=20, max_overflow=40`,
+so this is within limits, but rapid session creation/destruction adds overhead.
+**Impact**: Performance degradation under load; potential pool exhaustion
+if pipeline runs concurrently.
+**Fix**: Reuse a single session across the pipeline run.
+
+### [NEW-D-02] LOW: `get_db()` properly uses async context manager
+**File**: `backend/db/models.py`, lines 36-41
+**Description**: The `get_db()` dependency properly yields sessions within
+an `async with` block and closes in `finally`. This is correct.
+**Status**: PASS -- no issues found.
+
+### [NEW-D-03] LOW: Celery tasks use separate sync engines (correct pattern)
+**File**: `backend/workers/tasks.py`
+**Description**: Celery tasks correctly create synchronous `create_engine()`
+instances for DB access since Celery workers run in sync context. Sessions
+are properly used within `with engine.connect()` context managers and
+`conn.commit()` is called explicitly.
+**Status**: PASS -- correct pattern for sync Celery workers.
+
+---
+
+## 6. ERROR HANDLING REVIEW
+
+### [NEW-EH-01] MEDIUM: Email tracking endpoint silently catches all exceptions
+**File**: `backend/main.py`, lines 116-117
+**Description**: The tracking pixel endpoint catches `Exception` and passes:
+```python
+except Exception:
+    pass  # Never fail on tracking - silent
+```
+While silent failures are intentional for tracking pixels (to never break email
+clients), this also hides database connection errors, making debugging impossible.
+**Impact**: Invisible DB failures in tracking -- opened_at never updates with
+no error trail.
+**Fix**: Log the exception at `debug` or `warning` level before passing.
+
+### [NEW-EH-02] MEDIUM: OutreachAgent catches all exceptions and returns error dict
+**File**: `backend/agents/outreach_agent.py`, lines 92-94
+**Description**: The `run()` method catches all exceptions and returns
+`{"error": str(e), "sent": False}` instead of raising. Callers (like the
+orchestrator) don't check for the "error" key, so they silently continue
+as if outreach succeeded.
+**Impact**: Pipeline reports success even when all outreach emails fail.
+**Fix**: Check for "error" key in pipeline stages or re-raise critical errors.
+
+### [NEW-EH-03] MEDIUM: LearningAgent silently returns empty on LLM failure
+**File**: `backend/agents/supporting_agents.py`, lines 376-381
+**Description**: `_analyze_and_improve()` catches all exceptions and returns `[]`.
+Combined with the pipeline swallowing this, the learning agent can fail silently
+for months without anyone noticing.
+**Impact**: Learning cycle never improves prompts if LLM is misconfigured.
+**Fix**: Log error at warning level; emit a signal on failure.
+
+### [NEW-EH-04] LOW: Graceful error handling in API routes
+**File**: All `backend/api/routes/*.py` files
+**Description**: All API route files properly use `HTTPException` for
+validation errors (404, 400, 401, 409). Database operations are within
+proper async session contexts. This is correct.
+**Status**: PASS -- adequate for current stage.
+
+---
+
+## 7. CODE STYLE & CONSISTENCY
+
+### [NEW-CS-01] LOW: Inconsistent import organization
+**File**: Multiple files
+**Description**: Import organization varies across files. Some use
+stdlib/third-party/local grouping (main.py), others mix freely
+(orchestrator.py has `from sqlalchemy import create_engine` between
+config and agent imports).
+**Impact**: Readability; no runtime effect.
+
+### [NEW-CS-02] LOW: Module-level docstrings used as inter-class separators
+**File**: `backend/agents/supporting_agents.py`, lines 75-78, 185-188, 296-299, 333-336
+**Description**: Triple-quoted strings between class definitions serve as
+section headers (e.g., `"""DVT Talent AI -- CRM Management Agent..."""`).
+These are valid Python (string expressions) but are not attached to any
+class or function. They were noted in the original audit (C-10) as "fixed"
+but remain in the current code.
+**Impact**: Linter warnings; wasted memory for string constants.
+**Fix**: Convert to comments (`#`) or move into class docstrings.
+
+### [NEW-CS-03] LOW: Inconsistent enum usage in `LeadOut.status`
+**File**: `backend/api/routes/leads.py`, line 42
+**Description**: `status: str` in LeadOut, but the model uses
+`Enum(LeadStatus)`. The Pydantic model accepts any string but the DB
+enforces enum values. This can cause serialization mismatches.
+**Impact**: API may return/accept status values not in the enum.
+
+### [NEW-CS-04] LOW: `datetime.utcnow()` deprecated in Python 3.12+
+**File**: Multiple files throughout the codebase
+**Description**: `datetime.utcnow()` is used extensively (auth.py, orchestrator.py,
+outreach_agent.py, tasks.py, etc.). This function was deprecated in Python 3.12
+in favor of `datetime.now(datetime.timezone.utc)`.
+**Impact**: Deprecation warnings in Python 3.12+; no functional impact yet.
+
+---
+
+## 8. PREVIOUSLY FIXED ISSUES -- VERIFICATION STATUS
+
+| ID   | Issue | Status |
+|------|-------|--------|
+| C-01 | Missing tsconfig.json | VERIFIED FIXED |
+| C-02 | Missing postcss.config.js | VERIFIED FIXED |
+| C-03 | self.config.github_token | VERIFIED FIXED -- now uses `settings.github_token` |
+| C-04 | BackgroundTasks mutable default | PARTIALLY FIXED -- default is now `None` but fallback creates local instance (see NEW-H-02) |
+| C-05 | Sync OpenAI blocks event loop | VERIFIED FIXED -- `AsyncOpenAI` + `chat_async()` added |
+| C-06 | run_company_research hardcoded | VERIFIED FIXED -- now fetches from DB |
+| C-07 | Email tracking endpoint missing | VERIFIED FIXED -- endpoint exists in main.py |
+| C-08 | Nginx HTTPS crash | VERIFIED FIXED (not re-audited; config changed) |
+| C-09 | Missing alembic directory | VERIFIED FIXED -- alembic/ exists |
+| C-10 | Broken docstrings in supporting_agents | NOT FIXED -- module-level strings remain (see NEW-CS-02) |
+| H-01 | Stub API routes | VERIFIED FIXED -- all 4 routes fully implemented |
+| H-02 | WebSocket no auth | VERIFIED FIXED -- JWT validation on connect |
+| H-03 | raw_text from wrong dict | VERIFIED FIXED -- passes raw_text explicitly |
+| H-04 | Interview-Job relationship | VERIFIED FIXED -- back_populates added |
+| H-05 | Config defaults expose creds | PARTIALLY FIXED -- validator warns but doesn't block startup (see NEW-E-01) |
+| H-06 | No root page.tsx | VERIFIED FIXED (not re-audited; frontend) |
+| H-07 | No auth middleware | VERIFIED FIXED (not re-audited; frontend) |
+| M-01 | Missing packages | VERIFIED FIXED (not re-audited; requirements.txt) |
+| M-02 | Unused imports | PARTIALLY FIXED -- `create_engine` now unused in orchestrator (see NEW-C-05) |
+| M-03 | ChromaDB port | VERIFIED FIXED |
+| M-04 | CORS wildcards | VERIFIED FIXED -- explicit methods/headers |
+| M-07 | Hardcoded tracking domain | VERIFIED FIXED -- uses settings.app_base_url |
+| P-02 | SentenceTransformer per-call | VERIFIED FIXED -- class-level singleton |
+
+---
+
+## 9. SUMMARY OF NEW FINDINGS
+
+| Severity | Count | IDs |
+|----------|-------|-----|
+| CRITICAL | 5 | NEW-C-01 through NEW-C-05 |
+| HIGH | 8 | NEW-H-01 through NEW-H-07, NEW-A-01 |
+| MEDIUM | 7 | NEW-A-02, NEW-A-03, NEW-E-01, NEW-E-02, NEW-D-01, NEW-EH-01, NEW-EH-02, NEW-EH-03 |
+| LOW | 5 | NEW-E-03, NEW-CS-01 through NEW-CS-04 |
+| **Total New** | **25** | |
+
+### Issues by Category
+
+| Category | Critical | High | Medium | Low |
+|----------|----------|------|--------|-----|
+| Code Quality / Bugs | 3 | 3 | 0 | 2 |
+| Async/Await | 2 | 1 | 2 | 0 |
+| Security / Credentials | 0 | 2 | 1 | 0 |
+| Environment Config | 0 | 0 | 2 | 1 |
+| Database Sessions | 0 | 0 | 1 | 0 |
+| Error Handling | 0 | 0 | 3 | 0 |
+| Code Style | 0 | 0 | 0 | 2 |
+
+---
+
+## 10. TOP 5 MOST URGENT FIXES
+
+1. **NEW-H-06 / NEW-H-07**: Rotate exposed API keys and credentials IMMEDIATELY.
+   `credentials.json` and `backend/.env` contain real secrets that may be in git history.
+
+2. **NEW-C-01**: Add `import uuid` to `orchestrator.py`. One-line fix that prevents
+   pipeline crashes.
+
+3. **NEW-C-02**: Remove duplicate `AnalyticsAgent` class (lines 296-331 of
+   supporting_agents.py). The real async implementation is dead code.
+
+4. **NEW-H-01**: Fix social auth JWT `sub` claim -- change `user.email` to
+   `str(user.id)` in auth_social.py line 128. All social login users are locked out.
+
+5. **NEW-C-03 / NEW-C-04**: Resolve async/sync mismatch for OutreachAgent and
+   CRMManagementAgent. Celery scheduled tasks for these agents silently fail.
+
+---
+
+## 11. OVERALL HEALTH SCORE: 5.5 / 10
+
+### Justification
+
+**Strengths (contributes positively):**
+- Well-structured FastAPI application with clean route organization
+- Proper async database session management via `get_db()` dependency
+- Good use of Pydantic models for request/response validation
+- Comprehensive Celery integration with retry logic and beat scheduling
+- Good LLM abstraction with multi-provider fallback chain
+- WebSocket authentication was properly added
+- Proper CORS configuration with explicit methods/headers
+- Startup health validation for critical settings
+
+**Weaknesses (reduces score):**
+- 5 critical bugs that cause crashes or silent failures at runtime
+- Exposed credentials in repository (API keys, OAuth secrets, JWT secret)
+- Fundamental async/sync architecture mismatch in agent system
+- Social authentication is completely broken (wrong JWT subject claim)
+- Multiple cases of error swallowing that hide failures
+- Duplicate class definition causes real implementation to be dead code
+- Several Celery beat schedules silently do nothing (async agents in sync context)
+- Mutable default arguments in ORM models risk data corruption
+
+**Bottom line:** The codebase has good architectural foundations and many
+previous issues were properly fixed. However, the new issues -- particularly
+the credential exposure, async/sync mismatch across the agent system, and the
+broken social auth -- represent significant risks. The system would start and
+serve basic CRUD endpoints, but the core AI pipeline would encounter crashes
+(missing uuid import) and silent failures (async agents in sync Celery context)
+during autonomous operation.

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from uuid import uuid4
 from datetime import datetime
 
@@ -45,7 +45,7 @@ async def test_outreach_agent_db_persistence(db_session):
     context = {"company": {"name": "TestCorp"}}
     
     # Mock LLM and Gmail send
-    with patch.object(agent, 'chat', return_value='{"subject": "Hello", "body": "Test body", "preview": "Hello..."}'):
+    with patch.object(agent, 'chat_async', new_callable=AsyncMock, return_value='{"subject": "Hello", "body": "Test body", "preview": "Hello..."}'):
         with patch.object(agent, '_send_via_gmail', return_value={"success": True, "message_id": "msg_123"}):
             # We must use settings.database_sync_url which points to our test memory DB for this test if possible, 
             # but since the agent imports settings internally, we'll patch settings.database_sync_url
@@ -54,7 +54,7 @@ async def test_outreach_agent_db_persistence(db_session):
                 mock_settings.database_sync_url = TEST_DATABASE_URL
                 mock_settings.gmail_sender_email = "bot@dvttalent.com"
                 
-                result = agent.run(outreach_type="candidate", recipient=recipient, context=context, send_email=True)
+                result = await agent.run(outreach_type="candidate", recipient=recipient, context=context, send_email=True)
                 
                 assert result["sent"] is True
                 assert "tracking_id" in result

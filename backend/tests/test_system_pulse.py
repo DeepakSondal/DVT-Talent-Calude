@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from uuid import uuid4
 
 from agents.orchestrator import AgentOrchestrator
-from db.models import Company, Lead, Candidate, EmailSent, EmailCampaign
+from db.models import Company, Lead, Contact, Candidate, EmailSent, EmailCampaign
 
 @pytest.mark.asyncio
 async def test_full_autonomous_pulse_logic():
@@ -86,8 +86,8 @@ async def test_full_autonomous_pulse_logic():
         assert company.name == "Nova Tech"
         assert company.score == 85
         
-        # Check Lead (Linked to Company)
-        stmt = select(Lead).where(Lead.email == "sarah@novatech.io")
+        # Check Lead (Linked to Company via Contact email)
+        stmt = select(Lead).join(Contact).where(Contact.email == "sarah@novatech.io")
         res = await session.execute(stmt)
         lead = res.scalar_one_or_none()
         assert lead is not None

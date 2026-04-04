@@ -5,6 +5,8 @@ Manages agent execution order, error handling, and shared memory.
 """
 import json
 import asyncio
+import inspect
+import uuid
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import structlog
@@ -59,7 +61,7 @@ class AgentOrchestrator:
         self.run_log: List[Dict[str, Any]] = []
 
     def run_single_agent(self, agent_name: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Run a single agent by name"""
+        """Run a single agent by name (Synchronous Bridge)"""
         if agent_name not in self.agents:
             raise ValueError(f"Unknown agent: {agent_name}")
 
@@ -68,7 +70,12 @@ class AgentOrchestrator:
 
         start_time = datetime.utcnow()
         try:
-            result = agent.run(**(params or {}))
+            # FIX: Detect if the run method is a coroutine function (async)
+            if inspect.iscoroutinefunction(agent.run):
+                result = asyncio.run(agent.run(**(params or {})))
+            else:
+                result = agent.run(**(params or {}))
+            
             duration = (datetime.utcnow() - start_time).total_seconds()
             self._log_run(agent_name, "success", result, duration)
             return result

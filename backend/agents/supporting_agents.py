@@ -3,6 +3,8 @@ DVT Talent AI — Company Research Agent
 Deep-dives into companies to understand their hiring needs, tech stack, and culture.
 """
 import json
+import uuid
+import datetime
 from typing import Dict, Any
 from agents.base_agent import BaseAgent
 
@@ -63,7 +65,7 @@ Return JSON:
             response = self.chat(system_prompt, user_prompt, json_mode=True, temperature=0.2)
             data = json.loads(response)
             data["company_name"] = company_name
-            data["researched_at"] = __import__('datetime').datetime.utcnow().isoformat()
+            data["researched_at"] = datetime.datetime.utcnow().isoformat()
 
             self.log_complete(f"Researched {company_name} — score: {data.get('company_score', 0)}")
             return data
@@ -112,7 +114,7 @@ class CRMManagementAgent(BaseAgent):
 Return JSON: {{
   "next_action": "Send follow-up email",
   "priority": "high|medium|low",
-  "suggested_date": "{__import__('datetime').datetime.now().strftime('%Y-%m-%d')}",
+  "suggested_date": "{datetime.datetime.now().strftime('%Y-%m-%d')}",
   "rationale": "No reply in 3 days, try a different angle"
 }}"""
         try:
@@ -169,7 +171,7 @@ Return JSON list: [
   }}
 ]"""
         try:
-            response = self.chat(system_prompt, user_prompt, json_mode=True, temperature=0.4)
+            response = await self.chat_async(system_prompt, user_prompt, json_mode=True, temperature=0.4)
             return json.loads(response)
         except Exception:
             return [
@@ -273,7 +275,7 @@ DVT Talent AI Team"""
                 "end": {"dateTime": end_dt.isoformat(), "timeZone": "UTC"},
                 "attendees": [{"email": email} for email in attendees],
                 "conferenceData": {
-                    "createRequest": {"requestId": str(__import__('uuid').uuid4())}
+                    "createRequest": {"requestId": str(uuid.uuid4())}
                 },
             }
             created = service.events().insert(
@@ -292,42 +294,6 @@ DVT Talent AI Team"""
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-
-"""
-DVT Talent AI — Analytics Agent
-Measures campaign performance and generates insights.
-"""
-class AnalyticsAgent(BaseAgent):
-    def __init__(self):
-        super().__init__(
-            name="analytics",
-            description="Measures performance and generates recruiting insights",
-        )
-
-    def run(self, **kwargs) -> Dict[str, Any]:
-        self.log_start("Running analytics computation")
-        insights = self._generate_insights()
-        self.log_complete(f"Generated {len(insights)} insights")
-        return {"insights": insights}
-
-    def _generate_insights(self) -> list:
-        """Generate AI-powered recruiting insights"""
-        # In production: pull real metrics from DB and analyze with AI
-        insights = [
-            {
-                "type": "performance",
-                "title": "Email open rate dropped 12% this week",
-                "recommendation": "Test new subject line formats — try question-based subjects",
-                "priority": "high",
-            },
-            {
-                "type": "pipeline",
-                "title": "Python candidates converting at 3x rate of Java candidates",
-                "recommendation": "Double down on Python sourcing for current client pipeline",
-                "priority": "medium",
-            },
-        ]
-        return insights
 
 
 """
