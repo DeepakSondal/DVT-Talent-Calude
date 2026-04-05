@@ -32,11 +32,14 @@ frontend/.env
 *.swp
 *.swo
 
-# Next.js
+# Next.js & Playwright
 frontend/.next/
 frontend/out/
 frontend/node_modules/
 frontend/.env*.local
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
 
 # Docker
 *.log
