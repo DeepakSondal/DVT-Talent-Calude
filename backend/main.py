@@ -23,10 +23,8 @@ log = structlog.get_logger()
 async def lifespan(app: FastAPI):
     log.info("dvt_startup", env=settings.app_env)
 
-    # FIX [H-05]: Warn about missing critical settings at startup
-    warnings = settings.validate_required_settings()
-    for w in warnings:
-        log.warning("config_warning", message=w)
+    # FIX [NEW-E-01]: Ensure missing critical settings halt the app
+    settings.validate_required_settings()
 
     # Create tables (use Alembic for production migrations)
     try:
@@ -138,3 +136,7 @@ async def root():
         "version": "1.0.0",
         "docs": "/api/docs",
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

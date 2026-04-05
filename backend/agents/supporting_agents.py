@@ -69,9 +69,12 @@ Return JSON:
 
             self.log_complete(f"Researched {company_name} — score: {data.get('company_score', 0)}")
             return data
+        except json.JSONDecodeError as e:
+            self.log.warning("json_parse_error", error=str(e), company=company_name)
+            return {"company_name": company_name, "error": f"Failed to parse research data: {str(e)}"}
         except Exception as e:
             self.log_error(e)
-            return {"company_name": company_name, "error": str(e)}
+            raise e
 
 
 """
@@ -85,22 +88,43 @@ class CRMManagementAgent(BaseAgent):
             description="Tracks leads and updates pipeline stages based on interactions",
         )
 
-    async def run(self, **kwargs) -> Dict[str, Any]:
+    async def run_async(self, **kwargs) -> Dict[str, Any]:
         self.log_start("Running CRM analytics sync")
         try:
-            # Sync pipeline stages and metadata
             from db.models import AsyncSessionLocal, Lead, Candidate
             from sqlalchemy import select, func
+            import datetime
+            import asyncio
             
             async with AsyncSessionLocal() as session:
                 lead_count = await session.scalar(select(func.count(Lead.id)))
                 cand_count = await session.scalar(select(func.count(Candidate.id)))
                 
-                self.log_complete(f"CRM Synced — Tracking {lead_count} leads and {cand_count} candidates")
+                stale_threshold = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+                stale_leads_result = await session.execute(
+                    select(Lead).where(Lead.updated_at < stale_threshold).limit(10)
+                )
+                stale_leads = stale_leads_result.scalars().all()
+                
+                stale_actions = []
+                for lead in stale_leads:
+                    lead_dict = {
+                        "id": str(lead.id),
+                        "name": lead.name,
+                        "company": lead.company,
+                        "updated_at": lead.updated_at.isoformat() if lead.updated_at else None
+                    }
+                    action = await asyncio.to_thread(self.suggest_next_action, lead_dict)
+                    action["lead_id"] = str(lead.id)
+                    stale_actions.append(action)
+
+                self.log_complete(f"CRM Synced — Tracking {lead_count} leads and {cand_count} candidates. Found {len(stale_actions)} stale leads.")
                 return {
                     "leads_tracked": lead_count,
                     "candidates_tracked": cand_count,
-                    "status": "synchronized"
+                    "status": "synchronized",
+                    "stale_leads_detected": len(stale_actions),
+                    "stale_lead_actions": stale_actions
                 }
         except Exception as e:
             self.log_error(e)
@@ -120,18 +144,19 @@ Return JSON: {{
         try:
             response = self.chat(system_prompt, user_prompt, json_mode=True, temperature=0.3)
             return json.loads(response)
-        except Exception:
-            return {"next_action": "Follow up", "priority": "medium"}
+        except Exception as e:
+            self.log_error(e)
+            return {"next_action": "Follow up", "priority": "medium", "error": str(e)}
 
 
-class AnalyticsAgent(BaseAgent):
+class RecruitmentAnalyticsAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="analytics",
             description="Measures performance and generates recruiting insights",
         )
 
-    async def run(self, **kwargs) -> Dict[str, Any]:
+    async def run_async(self, **kwargs) -> Dict[str, Any]:
         self.log_start("Computing real-time intelligence")
         try:
             from db.models import AsyncSessionLocal, Company, Lead, Candidate, AnalyticsEvent
@@ -173,13 +198,15 @@ Return JSON list: [
         try:
             response = await self.chat_async(system_prompt, user_prompt, json_mode=True, temperature=0.4)
             return json.loads(response)
-        except Exception:
+        except Exception as e:
+            self.log_error(e)
             return [
                 {
                     "type": "pipeline",
                     "title": f"Discovery active with {stats.get('total_companies')} target companies",
                     "recommendation": "Initiate automated outreach to high-intent leads",
-                    "priority": "high"
+                    "priority": "high",
+                    "error": str(e)
                 }
             ]
 
@@ -250,11 +277,14 @@ DVT Talent AI Team"""
         description: str = "",
     ) -> dict:
         """Create Google Calendar event via API"""
+        if not settings.gmail_client_id or not settings.gmail_refresh_token:
+            self.log.warning("missing_google_credentials", msg="Skipping calendar event creation")
+            return {"success": False, "error": "Google Calendar credentials not configured"}
+            
         try:
             from google.oauth2.credentials import Credentials
             from googleapiclient.discovery import build
             from datetime import datetime, timedelta
-            import dateutil.parser
 
             creds = Credentials(
                 token=None,
@@ -265,7 +295,7 @@ DVT Talent AI Team"""
             )
             service = build("calendar", "v3", credentials=creds)
 
-            start_dt = dateutil.parser.parse(start_datetime)
+            start_dt = datetime.fromisoformat(start_datetime.replace("Z", "+00:00"))
             end_dt = start_dt + timedelta(minutes=duration_minutes)
 
             event = {
@@ -311,6 +341,19 @@ class LearningAgent(BaseAgent):
         self.log_start("Running learning cycle")
         try:
             improvements = self._analyze_and_improve(performance_data or {})
+            
+            try:
+                from db.models import SessionLocal, AnalyticsEvent
+                with SessionLocal() as db:
+                    event = AnalyticsEvent(
+                        event_type="learning_improvements",
+                        event_data={"improvements": improvements},
+                    )
+                    db.add(event)
+                    db.commit()
+            except Exception as dbe:
+                self.log.warning("learning_db_save_failed", error=str(dbe))
+                
             self.log_complete(f"Learning complete — {len(improvements)} improvements identified")
             return {"improvements": improvements}
         except Exception as e:
@@ -343,5 +386,6 @@ Return JSON:
         try:
             response = self.chat(system_prompt, user_prompt, json_mode=True, temperature=0.4)
             return json.loads(response).get("improvements", [])
-        except Exception:
+        except Exception as e:
+            self.log_error(e)
             return []

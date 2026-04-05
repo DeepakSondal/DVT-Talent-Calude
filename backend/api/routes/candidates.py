@@ -45,7 +45,7 @@ class CandidateOut(BaseModel):
     skills: Optional[List[str]]
     experience_years: Optional[int]
     current_company: Optional[str]
-    status: str
+    status: CandidateStatus
     source: Optional[str]
     score: float
     ai_summary: Optional[str]

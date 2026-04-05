@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
 
     # Database
-    database_url: str = "postgresql+asyncpg://dvt_user:dvt_password@localhost:5432/dvt_talent"
-    database_sync_url: str = "postgresql://dvt_user:dvt_password@localhost:5432/dvt_talent"
+    database_url: str = ""
+    database_sync_url: str = ""
     postgres_db: str = ""
     postgres_user: str = ""
     postgres_password: str = ""
@@ -135,22 +135,18 @@ class Settings(BaseSettings):
             return self.deepseek_model
         return self.openai_model
 
-    def validate_required_settings(self) -> list[str]:
+    def validate_required_settings(self) -> None:
         """
-        FIX [H-05]: Returns list of missing critical settings.
-        Call on startup to warn operators before runtime failures.
+        FIX [H-05]: Raises ValueError for missing critical settings.
+        Call on startup to prevent app from running with insecure defaults.
         """
-        warnings = []
         if not self.primary_llm_api_key:
-            warnings.append("No LLM key set — agents will fail. Set GROQ_API_KEY, KIMI_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
-        if not self.serper_api_key:
-            warnings.append("SERPER_API_KEY not set — web search disabled")
+            raise ValueError("No LLM key set — agents will fail. Set GROQ_API_KEY, KIMI_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY")
         if not self.secret_key or self.secret_key == "change-me-in-production":
             if self.is_production:
-                warnings.append("SECRET_KEY is default value — CRITICAL security risk in production")
-        if "dvt_password" in self.database_url and self.is_production:
-            warnings.append("DATABASE_URL uses default password — change before production deployment")
-        return warnings
+                raise ValueError("SECRET_KEY is default value — CRITICAL security risk in production")
+        if not self.database_url:
+            raise ValueError("DATABASE_URL is missing — cannot connect to database")
 
 
 @lru_cache()

@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from uuid import uuid4
 
 from agents.orchestrator import AgentOrchestrator
-from db.models import Company, Lead, Contact, Candidate, EmailSent, EmailCampaign
+from db.models import Company, Lead, Contact, Candidate, EmailSent, EmailCampaign, Base, AsyncSessionLocal
+from sqlalchemy.ext.asyncio import create_async_engine
 
 @pytest.mark.asyncio
 async def test_full_autonomous_pulse_logic():
@@ -14,6 +15,21 @@ async def test_full_autonomous_pulse_logic():
     SDET 'Truth Test': Verifies the complete async pipeline logic without external APIs.
     Validates: Async Flow -> DB Persistence -> Relationship Linking -> Signaling.
     """
+    # 0. Initialize In-Memory Test Database
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Need to patch AsyncSessionLocal to use this specific memory engine
+    # because sqlite memory databases are isolated per connection/engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.ext.asyncio import AsyncSession
+    import db.models
+    
+    test_sessionmaker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    original_sessionmaker = db.models.AsyncSessionLocal
+    db.models.AsyncSessionLocal = test_sessionmaker
+
     # 1. Setup Orchestrator with Mocked Agents
     orchestrator = AgentOrchestrator()
     
@@ -49,7 +65,7 @@ async def test_full_autonomous_pulse_logic():
         "subject": "Quick Question",
         "body": "Test Draft"
     })
-
+    
     # Mock Redis signaler to capture calls instead of sending to real Redis
     orchestrator._emit_signal = AsyncMock()
 
@@ -74,10 +90,9 @@ async def test_full_autonomous_pulse_logic():
     assert "successfully finished" in last_signal_msg
 
     # 5. Assertions: DB Persistence Verification
-    from db.models import AsyncSessionLocal
     from sqlalchemy import select
     
-    async with AsyncSessionLocal() as session:
+    async with db.models.AsyncSessionLocal() as session:
         # Check Company
         stmt = select(Company).where(Company.domain == "novatech.io")
         res = await session.execute(stmt)
@@ -101,6 +116,12 @@ async def test_full_autonomous_pulse_logic():
         assert candidate.score == 92
 
     print("✅ System Pulse Verification Successful: Data & Signals Synchronized.")
+    
+    # 6. Cleanup: Drop Tables and restore sessionmaker
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+    db.models.AsyncSessionLocal = original_sessionmaker
 
 if __name__ == "__main__":
     asyncio.run(test_full_autonomous_pulse_logic())

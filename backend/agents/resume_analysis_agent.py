@@ -11,6 +11,8 @@ from typing import Dict, List, Any, Optional
 from agents.base_agent import BaseAgent
 from config import settings
 
+MAX_CHARS = 2000
+
 
 SYSTEM_PROMPT = """You are a world-class Resume Analysis Agent for DVT Talent AI.
 Your job is to parse resumes and evaluate candidate fit for software engineering roles.
@@ -46,17 +48,8 @@ class ResumeAnalysisAgent(BaseAgent):
             name="resume_analysis",
             description="Parses and scores resumes against job descriptions using AI",
         )
-        self._chroma_client = None
-
-    @property
-    def chroma(self):
-        if self._chroma_client is None:
-            import chromadb
-            self._chroma_client = chromadb.HttpClient(
-                host=settings.chroma_host,
-                port=settings.chroma_port,
-            )
-        return self._chroma_client
+        from db.vector_store import VectorStore
+        self.vector_store = VectorStore()
 
     def run(
         self,
@@ -99,72 +92,64 @@ class ResumeAnalysisAgent(BaseAgent):
             self.log_error(e)
             return {"error": str(e), "score": 0}
 
-    def _parse_resume(self, resume_text: str) -> dict:
-        """Extract structured data from resume text"""
-        user_prompt = f"""Parse this resume and extract all structured information.
-
-Resume Text:
-{resume_text[:6000]}
-
-Return JSON:
-{{
-  "contact": {{
-    "first_name": "",
-    "last_name": "",
-    "email": "",
-    "phone": "",
-    "location": "",
-    "linkedin_url": "",
-    "github_url": "",
-    "portfolio_url": ""
-  }},
-  "summary": "Professional summary or objective",
-  "experience": [
-    {{
-      "company": "",
-      "title": "",
-      "start_date": "YYYY-MM",
-      "end_date": "YYYY-MM or present",
-      "description": "",
-      "achievements": [],
-      "technologies": []
-    }}
-  ],
-  "education": [
-    {{
-      "institution": "",
-      "degree": "",
-      "field": "",
-      "graduation_year": 2020,
-      "gpa": null
-    }}
-  ],
-  "skills": {{
-    "languages": [],
-    "frameworks": [],
-    "databases": [],
-    "cloud": [],
-    "tools": [],
-    "soft_skills": []
-  }},
-  "certifications": [],
-  "total_experience_years": 0,
-  "seniority_level": "junior|mid|senior|lead|staff|principal"
-}}"""
-
+    def predict_hiring_success_metrics(self, parsed: dict, job_description: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Uses LLM 'Recruiter Reasoning' to predict candidate longevity and performance.
+        Includes tenure stability, career trajectory, and skill scarcity.
+        """
+        self.log_start("Predicting candidate success")
+        
+        user_prompt = f"""Predict the 1-year success and retention probability of this candidate.
+        
+        CANDIDATE INFO:
+        - Total Exp: {parsed.get('total_experience_years', 0)} years
+        - Avg Tenure: {parsed.get('avg_tenure', '2.5 years')}
+        - Internal Promotions: {parsed.get('promotions_count', 1)}
+        - Skills: {json.dumps(parsed.get('skills', {}))}
+        
+        Return JSON:
+        {{
+          "success_probability": 88,
+          "retention_risk": "low|medium|high",
+          "reasoning": "Candidate has steady career progression and stayed at previous role for 4 years.",
+          "predicted_performance": "High-impact individual contributor",
+          "tenure_risk_factors": ["Was at last job only 11 months"]
+        }}"""
+        
         try:
             response = self.chat(SYSTEM_PROMPT, user_prompt, json_mode=True, temperature=0.1)
             return json.loads(response)
-        except Exception as e:
-            self.log.warning("resume_parse_failed", error=str(e))
-            return {}
+        except Exception:
+            return {"success_probability": 50, "reasoning": "Analysis failed"}
+
+    def generate_probing_questions(self, parsed: dict, job_description: str) -> List[str]:
+        """Generate specific technical questions to probe the candidate's 'Weakest links'."""
+        user_prompt = f"""Identify the 'Weakest Links' in this candidate's profile relative to the Job Description 
+        and generate 3 probing interview questions.
+        
+        JD: {job_description[:1000]}
+        CANDIDATE: {json.dumps(parsed.get('skills', {}))}
+        
+        Return JSON:
+        {{
+          "questions": [
+            "You mentioned 1 year of AWS - can you describe a time you handled a production outage?",
+            "..."
+          ]
+        }}"""
+        
+        try:
+            response = self.chat(SYSTEM_PROMPT, user_prompt, json_mode=True)
+            return json.loads(response).get("questions", [])
+        except Exception:
+            return ["Tell me about your technical background?"]
 
     def _score_against_job(self, resume_text: str, parsed: dict, job_description: str) -> dict:
         """Score resume against specific job description"""
         user_prompt = f"""Score this candidate's resume against the job description.
 
 JOB DESCRIPTION:
-{job_description[:2000]}
+{job_description[:MAX_CHARS]}
 
 CANDIDATE PROFILE:
 - Skills: {json.dumps(parsed.get('skills', {}))}
@@ -173,7 +158,7 @@ CANDIDATE PROFILE:
 - Recent roles: {json.dumps([e.get('title') for e in parsed.get('experience', [])[:3]])}
 
 RESUME TEXT (excerpt):
-{resume_text[:2000]}
+{resume_text[:MAX_CHARS]}
 
 Return JSON:
 {{
@@ -212,7 +197,7 @@ CANDIDATE PROFILE:
 - Seniority: {parsed.get('seniority_level', 'unknown')}
 
 RESUME EXCERPT:
-{resume_text[:3000]}
+{resume_text[:MAX_CHARS]}
 
 Return JSON:
 {{
@@ -239,38 +224,22 @@ Return JSON:
             self.log.warning("general_scoring_failed", error=str(e))
             return {"total_score": 0}
 
-    # FIX [P-02]: Class-level singleton — model loads once (~500MB, ~3s) not per call
-    _embedding_model = None
-
-    @classmethod
-    def _get_embedding_model(cls):
-        if cls._embedding_model is None:
-            from sentence_transformers import SentenceTransformer
-            cls._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-        return cls._embedding_model
-
     def _store_resume_embedding(
         self, resume_text: str, candidate_id: str, resume_id: str, parsed: dict
     ):
         """Store resume embedding in ChromaDB for similarity search"""
         try:
-            model = self._get_embedding_model()
-            embedding = model.encode(resume_text[:2000]).tolist()
-
-            collection = self.chroma.get_or_create_collection(
-                name=settings.chroma_collection_resumes
-            )
-            collection.add(
-                embeddings=[embedding],
-                documents=[resume_text[:2000]],
-                metadatas=[{
-                    "candidate_id": candidate_id,
-                    "resume_id": resume_id,
-                    "skills": json.dumps(parsed.get("skills", {})),
-                    "experience_years": str(parsed.get("total_experience_years", 0)),
-                    "seniority": parsed.get("seniority_level", "unknown"),
-                }],
-                ids=[resume_id],
+            metadata = {
+                "candidate_id": candidate_id,
+                "resume_id": resume_id,
+                "skills": json.dumps(parsed.get("skills", {})),
+                "experience_years": str(parsed.get("total_experience_years", 0)),
+                "seniority": parsed.get("seniority_level", "unknown"),
+            }
+            self.vector_store.upsert_resume(
+                resume_id=resume_id,
+                text=resume_text,
+                metadata=metadata
             )
         except Exception as e:
             self.log.warning("embedding_storage_failed", error=str(e))
@@ -278,25 +247,18 @@ Return JSON:
     def find_similar_candidates(self, job_description: str, top_k: int = 10) -> List[dict]:
         """Find candidates similar to a job description using vector search"""
         try:
-            model = self._get_embedding_model()
-            jd_embedding = model.encode(job_description[:2000]).tolist()
-
-            collection = self.chroma.get_or_create_collection(
-                name=settings.chroma_collection_resumes
-            )
-            results = collection.query(
-                query_embeddings=[jd_embedding],
-                n_results=top_k,
-            )
-            return [
-                {
-                    "candidate_id": results["metadatas"][0][i]["candidate_id"],
-                    "resume_id": results["ids"][0][i],
-                    "similarity_score": float(1 - results["distances"][0][i]),
-                    "metadata": results["metadatas"][0][i],
-                }
-                for i in range(len(results["ids"][0]))
-            ]
+            # 1. Use the new Hybrid Search functionality
+            results = self.vector_store.search_resumes(job_description, limit=top_k)
+            
+            formatted = []
+            for res in results:
+                formatted.append({
+                    "candidate_id": res["metadata"].get("candidate_id"),
+                    "resume_id": res["id"],
+                    "similarity_score": res["score"],
+                    "metadata": res["metadata"],
+                })
+            return formatted
         except Exception as e:
             self.log.warning("similarity_search_failed", error=str(e))
             return []
@@ -324,3 +286,7 @@ Return JSON:
             return "\n".join([p.text for p in doc.paragraphs])
         except Exception:
             return ""
+
+def warmup_embedding_model():
+    """Initializes the embedding model on worker start to prevent slow first requests."""
+    ResumeAnalysisAgent._get_embedding_model()

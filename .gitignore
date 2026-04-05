@@ -22,6 +22,9 @@ ENV/
 .env
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
+*.env
 
 # IDE
 .idea/

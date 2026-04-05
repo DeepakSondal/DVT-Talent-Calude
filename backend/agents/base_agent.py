@@ -83,6 +83,7 @@ class BaseAgent(ABC):
         response = self.llm.chat.completions.create(**kwargs)
         return response.choices[0].message.content
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def chat_async(
         self,
         system_prompt: str,
@@ -135,9 +136,48 @@ class BaseAgent(ABC):
             response.raise_for_status()
             return response.json().get("organic", [])
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def search_web_async(self, query: str, num_results: int = 10) -> list:
+        """Async web search using Serper API."""
+        if not settings.serper_api_key:
+            self.log.warning("serper_key_missing", msg="Web search skipped — set SERPER_API_KEY")
+            return []
+        import httpx
+        headers = {
+            "X-API-KEY": settings.serper_api_key,
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://google.serper.dev/search",
+                headers=headers,
+                json={"q": query, "num": num_results},
+            )
+            response.raise_for_status()
+            return response.json().get("organic", [])
+
+
+    def _broadcast_signal(self, event_type: str, message: str, metadata: Optional[Dict[str, Any]] = None):
+        """Publish an AI signal to Redis for real-time WebSocket broadcasting"""
+        try:
+            import redis
+            import json
+            r = redis.from_url(settings.redis_url)
+            signal = {
+                "type": event_type,
+                "agent": self.name,
+                "message": message,
+                "timestamp": datetime.utcnow().isoformat(),
+                "metadata": metadata or {},
+            }
+            r.publish("dvt_signals", json.dumps(signal))
+        except Exception as e:
+            self.log.warning("signal_broadcast_failed", error=str(e))
+
     def log_start(self, task_description: str):
         self.started_at = datetime.utcnow()
         self.log.info("agent_task_started", task=task_description)
+        self._broadcast_signal("agent_started", task_description)
 
     def log_complete(self, results_summary: str):
         self.completed_at = datetime.utcnow()
@@ -146,11 +186,24 @@ class BaseAgent(ABC):
             if self.started_at else 0
         )
         self.log.info("agent_task_completed", summary=results_summary, duration_seconds=round(duration, 2))
+        self._broadcast_signal("agent_completed", results_summary, {"duration": round(duration, 2)})
 
     def log_error(self, error: Exception):
         self.log.error("agent_task_failed", error=str(error), exc_info=True)
+        self._broadcast_signal("agent_error", str(error))
 
-    @abstractmethod
     def run(self, **kwargs) -> Dict[str, Any]:
-        """Execute the agent's main task. Must be implemented by subclasses."""
-        pass
+        """
+        Execute the agent's main task synchronously.
+        Subclasses should implement either run (sync) or run_async (async), but not both unless necessary.
+        """
+        import asyncio
+        return asyncio.run(self.run_async(**kwargs))
+
+    async def run_async(self, **kwargs) -> Dict[str, Any]:
+        """
+        Execute the agent's main task asynchronously.
+        Subclasses should implement either run (sync) or run_async (async), but not both unless necessary.
+        """
+        import asyncio
+        return await asyncio.to_thread(self.run, **kwargs)

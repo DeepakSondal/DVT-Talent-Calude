@@ -20,12 +20,12 @@ from config import settings
 
 
 # ── Engine & Session ────────────────────────────────────────────────────────
+# Fallback to an in-memory DB if no URL is provided (prevents crashes during import/testing)
+db_url = settings.database_url or "sqlite+aiosqlite:///:memory:"
+
 engine = create_async_engine(
-    settings.database_url,
+    db_url,
     echo=settings.app_env == "development",
-    pool_size=20,
-    max_overflow=40,
-    pool_pre_ping=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -118,7 +118,7 @@ class User(Base, TimestampMixin):
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     avatar_url = Column(String(500))
-    preferences = Column(JSON, default={})
+    preferences = Column(JSON, default=dict)
     last_login = Column(DateTime(timezone=True))
     provider = Column(String(50))  # e.g. "google", "github", "linkedin"
     provider_id = Column(String(255))
@@ -140,14 +140,14 @@ class Company(Base, TimestampMixin):
     size = Column(String(50))  # e.g. "51-200", "1001-5000"
     location = Column(String(255))
     description = Column(Text)
-    tech_stack = Column(ARRAY(String))
-    hiring_signals = Column(JSON, default=[])  # evidence they're hiring
+    tech_stack = Column(JSON, default=list)
+    hiring_signals = Column(JSON, default=list)  # evidence they're hiring
     open_roles_count = Column(Integer, default=0)
     funding_stage = Column(String(100))
     revenue_range = Column(String(100))
     score = Column(Float, default=0.0)  # AI-computed prospect score
     is_client = Column(Boolean, default=False)
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
     last_enriched = Column(DateTime(timezone=True))
 
     # Relationships
@@ -174,7 +174,7 @@ class Lead(Base, TimestampMixin):
     next_action = Column(String(255))
     next_action_date = Column(DateTime(timezone=True))
     value_estimate = Column(Float)
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
 
     # Relationships
     owner = relationship("User", back_populates="leads")
@@ -200,7 +200,7 @@ class Contact(Base, TimestampMixin):
     is_decision_maker = Column(Boolean, default=False)
     email_verified = Column(Boolean, default=False)
     do_not_contact = Column(Boolean, default=False)
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
 
     company = relationship("Company")
 
@@ -219,7 +219,7 @@ class Job(Base, TimestampMixin):
     remote = Column(Boolean, default=False)
     salary_min = Column(Integer)
     salary_max = Column(Integer)
-    skills_required = Column(ARRAY(String))
+    skills_required = Column(JSON, default=list)
     experience_years = Column(Integer)
     job_type = Column(String(50))
     source_url = Column(String(500))
@@ -246,7 +246,7 @@ class Candidate(Base, TimestampMixin):
     linkedin_url = Column(String(500))
     github_url = Column(String(500))
     portfolio_url = Column(String(500))
-    skills = Column(ARRAY(String))
+    skills = Column(JSON, default=list)
     experience_years = Column(Integer)
     current_company = Column(String(255))
     current_salary = Column(Integer)
@@ -258,7 +258,7 @@ class Candidate(Base, TimestampMixin):
     embedding_id = Column(String(255))  # ChromaDB reference
     ai_summary = Column(Text)
     do_not_contact = Column(Boolean, default=False)
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
 
     resumes = relationship("Resume", back_populates="candidate")
     job_applications = relationship("JobCandidate", back_populates="candidate")
@@ -274,7 +274,7 @@ class Resume(Base, TimestampMixin):
     file_name = Column(String(255))
     file_url = Column(String(500))
     raw_text = Column(Text)
-    parsed_data = Column(JSON, default={})
+    parsed_data = Column(JSON, default=dict)
     score = Column(Float, default=0.0)
     embedding_id = Column(String(255))
     is_current = Column(Boolean, default=True)
@@ -308,12 +308,12 @@ class EmailCampaign(Base, TimestampMixin):
     subject_template = Column(Text)
     body_template = Column(Text)
     is_active = Column(Boolean, default=True)
-    send_days = Column(ARRAY(String))  # ["Monday", "Tuesday"]
+    send_days = Column(JSON, default=list)  # ["Monday", "Tuesday"]
     send_time = Column(String(10))     # "09:00"
     total_sent = Column(Integer, default=0)
     total_opened = Column(Integer, default=0)
     total_replied = Column(Integer, default=0)
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
 
     owner = relationship("User", back_populates="campaigns")
     emails = relationship("EmailSent", back_populates="campaign")
@@ -335,7 +335,7 @@ class EmailSent(Base, TimestampMixin):
     replied_at = Column(DateTime(timezone=True))
     gmail_message_id = Column(String(255))
     tracking_id = Column(String(255), unique=True, default=lambda: str(uuid.uuid4()))
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
 
     campaign = relationship("EmailCampaign", back_populates="emails")
     candidate = relationship("Candidate", back_populates="emails_received")
@@ -353,7 +353,7 @@ class Interview(Base, TimestampMixin):
     meeting_url = Column(String(500))
     status = Column(Enum(InterviewStatus), default=InterviewStatus.SCHEDULED)
     notes = Column(Text)
-    feedback = Column(JSON, default={})
+    feedback = Column(JSON, default=dict)
     calendar_event_id = Column(String(255))
 
     candidate = relationship("Candidate", back_populates="interviews")
@@ -369,7 +369,7 @@ class Activity(Base, TimestampMixin):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     activity_type = Column(String(50))  # "email_sent", "call", "note", "status_change"
     description = Column(Text)
-    meta_data = Column("metadata", JSON, default={})
+    meta_data = Column("metadata", JSON, default=dict)
 
     lead = relationship("Lead", back_populates="activities")
 
@@ -381,8 +381,8 @@ class AgentTask(Base, TimestampMixin):
     agent_name = Column(String(100), nullable=False, index=True)
     task_type = Column(String(100), nullable=False)
     status = Column(Enum(AgentTaskStatus), default=AgentTaskStatus.PENDING, index=True)
-    input_data = Column(JSON, default={})
-    output_data = Column(JSON, default={})
+    input_data = Column(JSON, default=dict)
+    output_data = Column(JSON, default=dict)
     error_message = Column(Text)
     retries = Column(Integer, default=0)
     started_at = Column(DateTime(timezone=True))
@@ -399,7 +399,7 @@ class AnalyticsEvent(Base, TimestampMixin):
     entity_type = Column(String(50))  # "lead", "candidate", "email", etc.
     entity_id = Column(UUID(as_uuid=True))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    properties = Column(JSON, default={})
+    properties = Column(JSON, default=dict)
 
     __table_args__ = (
         Index("ix_analytics_events_type_date", "event_type", "created_at"),

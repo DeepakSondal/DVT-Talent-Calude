@@ -26,7 +26,7 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    status: Optional[str] = None
+    status: Optional[LeadStatus] = None
     notes: Optional[str] = None
     next_action: Optional[str] = None
     next_action_date: Optional[datetime] = None
@@ -38,7 +38,7 @@ class LeadOut(BaseModel):
     id: UUID
     company_id: Optional[UUID]
     contact_id: Optional[UUID]
-    status: str
+    status: LeadStatus
     source: Optional[str]
     score: float
     notes: Optional[str]

@@ -69,7 +69,14 @@ class MarketIntelligenceAgent(BaseAgent):
 
             # AI analysis of results
             if raw_results:
-                companies = self._analyze_with_ai(raw_results, industry, location, limit)
+                seen_urls = set()
+                deduped = []
+                for r in raw_results:
+                    url = r.get("link", "")
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        deduped.append(r)
+                companies = self._analyze_with_ai(deduped, industry, location, limit)
 
         except Exception as e:
             self.log_error(e)
@@ -115,7 +122,10 @@ Return JSON with this exact structure:
         try:
             response = self.chat(SYSTEM_PROMPT, user_prompt, json_mode=True, temperature=0.2)
             data = json.loads(response)
-            return data.get("companies", [])
+            companies = data.get("companies", [])
+            if not companies:
+                self.log.warning("no_companies_parsed", msg="AI returned empty companies list from search results")
+            return companies
         except (json.JSONDecodeError, KeyError) as e:
             self.log.warning("ai_parse_error", error=str(e))
             return []
@@ -128,20 +138,40 @@ Return JSON with this exact structure:
         ]
         results = []
         for q in queries:
-            results.extend(self.search_web(q, num_results=5))
+            result = self.search_web(q, num_results=5)
+            results.extend(result)
 
-        if not results:
-            return []
-
-        snippets = "\n".join([f"{r.get('title', '')} — {r.get('snippet', '')}" for r in results])
-        prompt = f"""Extract company names and funding details from these news snippets.
-Return JSON: {{"companies": [{{"name": "", "amount_million": 0, "series": "", "domain": ""}}]}}
-
-News:
-{snippets}"""
-
+    def map_competitor_talent(self, target_company: str, top_k: int = 5) -> Dict[str, Any]:
+        """
+        Analyze where a target company's engineering talent is coming from.
+        Logic: Scans LinkedIn and GitHub for current employees and extracts their 'Past Companies'.
+        """
+        self.log_start(f"Mapping talent origin for {target_company}")
+        
+        # Simulate search result logic
+        query = f'site:linkedin.com/in "{target_company}" "past company"'
+        results = self.search_web(query, num_results=10)
+        
+        snippets = "\n".join([r.get("snippet", "") for r in results])
+        
+        prompt = f"""Identify the most frequent 'Former Companies' for current employees at {target_company}.
+        
+        SEARCH SNIPPETS:
+        {snippets}
+        
+        Return JSON:
+        {{
+          "target": "{target_company}",
+          "feeder_companies": [
+            {{"name": "Google", "relevance": 0.85, "count_detected": 12}},
+            {{"name": "Meta", "relevance": 0.72, "count_detected": 8}}
+          ],
+          "advice": "Company {target_company} seems to poach heavily from [X]. Recruiter should target candidates at [X] seeking career advancement."
+        }}"""
+        
         try:
-            resp = self.chat(SYSTEM_PROMPT, prompt, json_mode=True)
-            return json.loads(resp).get("companies", [])
+            response = self.chat(SYSTEM_PROMPT, prompt, json_mode=True)
+            return json.loads(response)
         except Exception:
-            return []
+            return {"target": target_company, "feeder_companies": [], "error": "analysis_failed"}
+

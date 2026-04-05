@@ -1,4 +1,5 @@
 import pytest
+from db.vector_store import CHROMA_AVAILABLE
 import pytest_asyncio
 import asyncio
 from typing import AsyncGenerator
@@ -8,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from main import app
 from db.models import Base, get_db
+import db.models
 
 # Test database URL (using SQLite in-memory for speed)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -33,8 +35,14 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     async_session = sessionmaker(
         test_engine, class_=AsyncSession, expire_on_commit=False
     )
+    # Patch the global sessionmaker used by agents/main
+    original_sessionmaker = db.models.AsyncSessionLocal
+    db.models.AsyncSessionLocal = async_session
+    
     async with async_session() as session:
         yield session
+        
+    db.models.AsyncSessionLocal = original_sessionmaker
 
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:

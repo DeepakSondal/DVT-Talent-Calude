@@ -75,11 +75,15 @@ def _verify_ws_token(token: str) -> str | None:
         return None
 
 
-@router.websocket("/live")
-async def websocket_endpoint(
+@router.websocket("/pipeline-events")
+async def pipeline_events_endpoint(
     websocket: WebSocket,
     token: str = Query(..., description="JWT access token"),
 ):
+    """
+    Dedicated endpoint for real-time AI pipeline activity notifications.
+    Used by the dashboard 'Live Feed' component.
+    """
     user_id = _verify_ws_token(token)
     if not user_id:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -87,12 +91,8 @@ async def websocket_endpoint(
 
     await manager.connect(websocket, user_id)
     try:
-        await manager.send_to_user(user_id, {
-            "type": "connected",
-            "message": "Live Engine Active",
-            "user_id": user_id,
-        })
         while True:
+            # Keep connection alive, listen for client pings
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text('{"type":"pong"}')

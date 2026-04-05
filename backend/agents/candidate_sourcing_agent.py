@@ -110,8 +110,10 @@ class CandidateSourcingAgent(BaseAgent):
                 )
                 if resp.status_code == 200:
                     users = resp.json().get("items", [])
+                    import time
                     for user in users[:limit]:
                         # Fetch full profile
+                        time.sleep(1) # GitHub API rate limiting
                         profile_resp = client.get(
                             f"https://api.github.com/users/{user['login']}",
                             headers=headers,
@@ -220,11 +222,14 @@ Return JSON:
 
     def _deduplicate(self, candidates: List[dict]) -> List[dict]:
         """Remove duplicates by email or name"""
+        import uuid
         seen = set()
         unique = []
         for c in candidates:
             key = c.get("email") or f"{c.get('first_name', '')}{c.get('last_name', '')}".lower()
-            if key and key not in seen:
+            if not key:
+                key = str(uuid.uuid4())
+            if key not in seen:
                 seen.add(key)
                 unique.append(c)
         return unique

@@ -46,14 +46,15 @@ class OutreachAgent(BaseAgent):
             description="Writes and sends personalized cold emails for recruiting outreach",
         )
 
-    async def run(
+    async def run_async(
         self,
         outreach_type: str,  # "candidate" or "client"
         recipient: Dict[str, Any],
         context: Dict[str, Any],
         send_email: bool = False,
     ) -> Dict[str, Any]:
-        self.log_start(f"Drafting {outreach_type} outreach to {recipient.get('email', 'unknown')}")
+        recipient_name = f"{recipient.get('first_name', '')} {recipient.get('last_name', '')}".strip() or recipient.get('email', 'unknown')
+        self.log_start(f"Drafting {outreach_type} outreach to {recipient_name}")
 
         try:
             if outreach_type == "candidate":
@@ -86,7 +87,7 @@ class OutreachAgent(BaseAgent):
             # Save to Database (Async)
             await self._save_to_db_async(outreach_type, recipient, result, context)
 
-            self.log_complete(f"Email drafted for {recipient.get('email')}, sent={result['sent']}")
+            self.log_complete(f"Email drafted for {recipient_name}, sent={result['sent']}")
             return result
 
         except Exception as e:
@@ -121,9 +122,15 @@ class OutreachAgent(BaseAgent):
                         await session.flush()
                         campaign_id = campaign.id
 
+                try:
+                    tracking_uid = uuid.UUID(result["tracking_id"])
+                except ValueError:
+                    self.log.error("invalid_tracking_id", tracking_id=result["tracking_id"])
+                    tracking_uid = uuid.uuid4()
+
                 # 2. Insert EmailSent record
                 new_email = EmailSent(
-                    id=result["tracking_id"],
+                    id=tracking_uid,
                     campaign_id=campaign_id,
                     to_email=result["to_email"],
                     subject=result["subject"],
@@ -136,41 +143,43 @@ class OutreachAgent(BaseAgent):
         except Exception as e:
             self.log.error("db_save_failed", error=str(e))
 
-    async def _write_candidate_email_async(self, candidate: Dict[str, Any], context: Dict[str, Any]) -> dict:
-        """Write personalized email to a candidate about an opportunity"""
+    async def _write_candidate_email_async(self, candidate: Dict[str, Any], context: Dict[str, Any], variation: str = "A") -> dict:
+        """Write personalized email to a candidate about an opportunity with A/B testing support"""
         job = context.get("job", {})
         company = context.get("company", {})
+        
+        # Adjust prompt based on variation
+        variation_instruction = ""
+        if variation == "B":
+            variation_instruction = "Try a more aggressive, 'Problem-First' angle (e.g., 'Frustrated with [Legacy Tech]?')."
+        else:
+            variation_instruction = "Use the standard, 'Benefit-First' angle (e.g., 'Build the future of [Industry]')."
 
         user_prompt = f"""Write a short, personalized cold email to this software engineer about a job opportunity.
+        
+        ANGLE: {variation_instruction}
 
-CANDIDATE:
-- Name: {candidate.get('first_name', 'there')} {candidate.get('last_name', '')}
-- Current title: {candidate.get('title', 'Software Engineer')}
-- Current company: {candidate.get('current_company', 'their company')}
-- Top skills: {', '.join(candidate.get('skills', [])[:5])}
-- GitHub: {candidate.get('github_url', 'N/A')}
-- Source: {candidate.get('source', 'LinkedIn')}
-
-JOB OPPORTUNITY:
-- Role: {job.get('title', 'Senior Software Engineer')}
-- Company: {company.get('name', 'an exciting startup')}
-- Location: {job.get('location', 'Remote')} {'(Remote OK)' if job.get('remote') else ''}
-- Salary: ${job.get('salary_min', 120)}k-${job.get('salary_max', 180)}k
-- Tech stack: {', '.join(job.get('skills_required', [])[:5])}
-
-PERSONALIZATION HOOKS (use 1-2):
-- Their GitHub has impressive contributions → mention specific value
-- They recently changed companies → timing might be right
-- Their skills match perfectly → call this out specifically
-
-Return JSON:
-{{
-  "subject": "Quick question about your Python work",
-  "body": "Hi [Name],\\n\\n[3-4 sentence email]\\n\\nBest,\\nAlex\\nDVT Talent AI",
-  "preview": "First line of email...",
-  "follow_up_day": 3,
-  "personalization_used": "GitHub contributions in Python"
-}}"""
+        CANDIDATE:
+        - Name: {candidate.get('first_name', 'there')} {candidate.get('last_name', '')}
+        - Current title: {candidate.get('title', 'Software Engineer')}
+        - Current company: {candidate.get('current_company', 'their company')}
+        - Top skills: {', '.join(candidate.get('skills', [])[:5])}
+        - LinkedIn: {candidate.get('linkedin_url', 'N/A')}
+        - GitHub: {candidate.get('github_url', 'N/A')}
+        
+        JOB OPPORTUNITY:
+        - Role: {job.get('title', 'Senior Software Engineer')}
+        - Company: {company.get('name', 'an exciting startup')}
+        - Tech stack: {', '.join(job.get('skills_required', [])[:5])}
+        
+        Return JSON:
+        {{
+          "subject": "Quick question about your Python work",
+          "body": "Hi [Name],\\n\\n[3-4 sentence email]\\n\\nBest,\\nAlex\\nDVT Talent AI",
+          "preview": "First line of email...",
+          "variation_id": "{variation}",
+          "personalization_used": "GitHub contributions in Python"
+        }}"""
 
         try:
             response = await self.chat_async(SYSTEM_PROMPT, user_prompt, json_mode=True, temperature=0.7)
@@ -178,10 +187,42 @@ Return JSON:
         except Exception:
             return {
                 "subject": f"Opportunity: {job.get('title', 'Senior Engineer')} role",
-                "body": f"Hi {candidate.get('first_name', 'there')},\n\nI came across your profile and think you'd be a great fit for a {job.get('title', 'senior engineering')} role at {company.get('name', 'an exciting company')}. The role is {job.get('location', 'remote')} with a strong team.\n\nWould you be open to a quick 15-minute chat?\n\nBest,\nAlex\nDVT Talent AI",
-                "preview": "Quick opportunity question",
-                "follow_up_day": 3,
+                "body": f"Hi {candidate.get('first_name', 'there')},\n\nI came across your profile and think you'd be a great fit for a {job.get('title', 'senior engineering')} role at {company.get('name', 'an exciting company')}.\n\nBest,\nAlex\nDVT Talent AI",
+                "variation_id": variation,
             }
+
+    async def analyze_reply_sentiment(self, email_body: str) -> Dict[str, Any]:
+        """Automatically classify a candidate reply as positive, negative, or neutral and suggest next steps."""
+        self.log_start("Analyzing reply sentiment")
+        
+        prompt = f"""Analyze the sentiment and intent of this candidate's reply to our outreach email.
+        
+        REPLY EMAIL:
+        {email_body[:2000]}
+        
+        Classify into:
+        1. INTERESTED: (Positive) Wants a call, asks for more info, or says 'tell me more'.
+        2. NOT_INTERESTED: (Negative) Explicitly says no, or 'take me off the list'.
+        3. NEEDS_INFO: (Neutral) Asks a specific question (e.g., 'Is it remote?', 'What's the salary?').
+        4. OOO: (Auto-reply) Out of office or automatic response.
+        
+        Return JSON:
+        {{
+          "sentiment": "INTERESTED|NOT_INTERESTED|NEEDS_INFO|OOO",
+          "confidence": 95,
+          "auto_response_draft": "Draft of what to say next based on the reply...",
+          "next_action": "Schedule Call|Archive|Follow up with info",
+          "extracted_questions": ["What is the salary range?"]
+        }}"""
+        
+        try:
+            response = await self.chat_async(SYSTEM_PROMPT, prompt, json_mode=True)
+            result = json.loads(response)
+            self.log_complete(f"Sentiment analyzed: {result.get('sentiment')}")
+            return result
+        except Exception as e:
+            self.log_error(e)
+            return {"sentiment": "NEEDS_INFO", "error": str(e)}
 
     async def _write_client_email_async(self, contact: Dict[str, Any], context: Dict[str, Any]) -> dict:
         """Write personalized email to a hiring manager/HR director"""
@@ -193,12 +234,13 @@ Return JSON:
         if candidates:
             candidate_teaser = f"I currently have {len(candidates)} pre-vetted {open_roles[0] if open_roles else 'senior engineer'}s available immediately."
 
+        company_name = company.get('name', 'your company')
         user_prompt = f"""Write a short, compelling cold email to this hiring manager about recruiting services.
 
 RECIPIENT:
 - Name: {contact.get('first_name', 'there')} {contact.get('last_name', '')}
 - Title: {contact.get('title', 'VP of Engineering')}
-- Company: {company.get('name', 'their company')}
+- Company: {company_name}
 - Company industry: {company.get('industry', 'technology')}
 - Company size: {company.get('size', '51-200')}
 
@@ -222,8 +264,7 @@ Return JSON:
         try:
             response = await self.chat_async(SYSTEM_PROMPT, user_prompt, json_mode=True, temperature=0.7)
             data = json.loads(response)
-            # Replace placeholder
-            company_name = company.get('name', 'your company')
+            # Replace placeholder if still present
             data["subject"] = data.get("subject", "").replace("{company_name}", company_name)
             return data
         except Exception:

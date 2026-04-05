@@ -66,3 +66,17 @@ celery_app.conf.beat_schedule = {
         "kwargs": {},
     },
 }
+
+from celery.signals import worker_process_init
+
+@worker_process_init.connect
+def init_worker(**kwargs):
+    import structlog
+    log = structlog.get_logger()
+    try:
+        from agents.resume_analysis_agent import warmup_embedding_model
+        log.info("warming_up_embedding_model")
+        warmup_embedding_model()
+        log.info("embedding_model_warmup_complete")
+    except Exception as e:
+        log.error("embedding_model_warmup_failed", error=str(e))

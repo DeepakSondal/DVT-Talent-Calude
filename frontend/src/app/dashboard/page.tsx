@@ -22,6 +22,16 @@ import { Badge } from "@/components/ui/Badge";
 import { analyticsApi, agentsApi, type DashboardKPIs } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useWebSocket } from "@/providers/websocket-provider";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
+interface PipelineEvent {
+  type: string;
+  agent: string;
+  message: string;
+  timestamp: string;
+  metadata?: any;
+}
 
 // ── Mock Data for Premium Feel ─────────────────────────────────────────────
 const VELOCITY_DATA = [
@@ -61,6 +71,15 @@ export default function ExecutiveDashboard() {
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
   const [executing, setExecuting] = useState(false);
+  const { lastMessage } = useWebSocket();
+  const [events, setEvents] = useState<PipelineEvent[]>([]);
+
+  // Update events feed when a new message arrives via WebSocket
+  useEffect(() => {
+    if (lastMessage && (lastMessage.type === "agent_started" || lastMessage.type === "agent_completed" || lastMessage.type === "agent_error")) {
+      setEvents(prev => [lastMessage as PipelineEvent, ...prev].slice(0, 10));
+    }
+  }, [lastMessage]);
 
   const handleRunPipeline = async () => {
     try {
@@ -84,67 +103,68 @@ export default function ExecutiveDashboard() {
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="space-y-12 pb-20"
+      className="space-y-12 pb-20 mt-10 md:mt-0"
     >
       {/* Header Area */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1.5">
-          <Badge variant="primary" className="bg-blue-50 text-blue-600 border-blue-100">Executive Overview</Badge>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 uppercase italic">Command Center</h1>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Real-time Autonomous Talent Orchestration</p>
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-white/5">
+        <div className="space-y-1.5 font-sans">
+          <Badge variant="primary" className="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/20">Executive Overview</Badge>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Command Center</h1>
+          <p className="text-slate-400 dark:text-slate-500 font-bold text-sm uppercase tracking-widest leading-none mt-1">Real-time Autonomous Talent Orchestration</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" className="bg-white border-slate-200">
-             <ArrowUpRight className="w-4 h-4 mr-2 text-slate-400" />
-             View Audit Logs
+          <ThemeToggle />
+          <Button variant="secondary" className="bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300">
+             <ArrowUpRight className="w-4 h-4 mr-2" />
+             Audit Logs
           </Button>
           <Button 
-            className="bg-blue-600 shadow-xl shadow-blue-500/20"
+            className="bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 text-white"
             onClick={handleRunPipeline}
             disabled={executing}
             isLoading={executing}
           >
              <Zap className="w-4 h-4 mr-2" />
-             Update Strategy
+             Run Pipeline
           </Button>
         </div>
       </header>
 
       {/* Hero ROI Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-         <Card className="p-8 border-blue-100 bg-blue-50/10 relative overflow-hidden group hover:border-blue-300 transition-all shadow-sm">
+         <Card className="p-8 border-blue-100 dark:border-blue-500/20 bg-blue-50/10 dark:bg-blue-500/5 relative overflow-hidden group hover:border-blue-300 dark:hover:border-blue-500/40 transition-all shadow-sm">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[60px] pointer-events-none" />
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                  <Timer className="w-6 h-6 text-blue-600" />
-                  <Badge variant="primary">Target Achieved</Badge>
+                  <Timer className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <Badge variant="primary" className="dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">Target Achieved</Badge>
                </div>
                <div className="space-y-1">
-                  <h3 className="text-6xl font-black tracking-tighter text-slate-900">428h</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Human Hours Saved / Month</p>
+                  <h3 className="text-6xl font-black tracking-tighter text-slate-900 dark:text-white">428h</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Human Hours Saved / Month</p>
                </div>
-               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
+               <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1">
                      <TrendingUp className="w-3 h-3" />
                      +14% Increase
                   </span>
-                  <span className="text-[10px] font-black text-slate-300 uppercase">vs Last Period</span>
+                  <span className="text-[10px] font-black text-slate-300 dark:text-white/10 uppercase">vs Last Period</span>
                </div>
             </div>
          </Card>
 
-         <Card variant="solid" className="p-8 relative overflow-hidden group transition-all">
+         <Card variant="solid" className="p-8 relative overflow-hidden group transition-all bg-white dark:bg-white/5 border-slate-100 dark:border-white/10">
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                  <BrainCircuit className="w-6 h-6 text-emerald-500" />
-                  <Badge variant="success">Continuous Engine</Badge>
+                  <BrainCircuit className="w-6 h-6 text-emerald-500 dark:text-emerald-400" />
+                  <Badge variant="success" className="dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">Continuous Engine</Badge>
                </div>
                <div className="space-y-1">
-                  <h3 className="text-6xl font-black tracking-tighter text-slate-900">92%</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Autonomous Sourcing Efficiency</p>
+                  <h3 className="text-6xl font-black tracking-tighter text-slate-900 dark:text-white">92%</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Autonomous Sourcing Efficiency</p>
                </div>
-               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+               <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
                      Precision: 0.94
                   </span>
                   <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
@@ -152,21 +172,21 @@ export default function ExecutiveDashboard() {
             </div>
          </Card>
 
-         <Card variant="solid" className="p-8 relative overflow-hidden group transition-all">
+         <Card variant="solid" className="p-8 relative overflow-hidden group transition-all bg-white dark:bg-white/5 border-slate-100 dark:border-white/10">
             <div className="space-y-6">
                <div className="flex items-center justify-between">
-                  <Globe className="w-6 h-6 text-blue-500" />
-                  <Badge variant="outline">Global Network</Badge>
+                  <Globe className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+                  <Badge variant="outline" className="dark:border-white/10 dark:text-slate-400">Global Network</Badge>
                </div>
                <div className="space-y-1">
-                  <h3 className="text-6xl font-black tracking-tighter text-slate-900">12.4k</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Active Talent Nodes Synced</p>
+                  <h3 className="text-6xl font-black tracking-tighter text-slate-900 dark:text-white">12.4k</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Active Talent Nodes Synced</p>
                </div>
-               <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1">
+               <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1">
                      Latency: 140ms
                   </span>
-                  <RefreshCw className="w-3 h-3 text-slate-200 animate-spin-slow" />
+                  <RefreshCw className="w-3 h-3 text-slate-200 dark:text-white/10 animate-spin-slow" />
                </div>
             </div>
          </Card>
@@ -206,24 +226,24 @@ export default function ExecutiveDashboard() {
          <div className="col-span-12 lg:col-span-7 space-y-10">
             <div className="flex flex-col gap-2">
                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600">Yield Management</h3>
-               <h2 className="text-2xl font-black text-slate-900">Commercial Conversion Funnel</h2>
+               <h2 className="text-2xl font-black text-slate-900 dark:text-white">Commercial Conversion Funnel</h2>
             </div>
             <div className="space-y-4">
                {CONVERSION_FUNNEL.map((step, i) => (
                   <div key={step.label} className="relative group">
                      <Card 
                         className={cn(
-                           "h-20 border-slate-100 flex items-center justify-between px-10 transition-all duration-700 bg-slate-50 shadow-sm",
-                           "hover:border-blue-200"
+                           "h-20 border-slate-100 dark:border-white/5 flex items-center justify-between px-10 transition-all duration-700 bg-slate-50 dark:bg-white/5 shadow-sm",
+                           "hover:border-blue-200 dark:hover:border-blue-500/50"
                         )}
                         style={{ width: `${100 - (i * 8)}%`, marginLeft: `${i * 4}%` }}
                      >
                         <div className="space-y-1">
-                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{step.label}</p>
-                           <p className="text-xl font-black text-slate-900">{step.value}</p>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{step.label}</p>
+                           <p className="text-xl font-black text-slate-900 dark:text-white">{step.value}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                           <span className="text-lg font-black text-slate-500">{step.percent}%</span>
+                           <span className="text-lg font-black text-slate-500 dark:text-slate-400">{step.percent}%</span>
                            {i > 0 && <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Conversion</span>}
                         </div>
                      </Card>
@@ -231,6 +251,70 @@ export default function ExecutiveDashboard() {
                ))}
             </div>
          </div>
+         
+         {/* Live Intelligence Activity Feed */}
+         <Card className="col-span-12 p-10 bg-white dark:bg-white/5 border-slate-100 dark:border-white/10 shadow-sm relative overflow-hidden group">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex flex-col gap-1">
+                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">Intelligence Stream</h3>
+                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">Live Pipeline Signal Engine</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">System Online</span>
+              </div>
+            </div>
+            
+            <div className="space-y-3 min-h-[200px] max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
+              {events.length === 0 ? (
+                <div className="h-40 flex flex-col items-center justify-center text-slate-300 dark:text-white/10 gap-3 border-2 border-dashed border-slate-50 dark:border-white/5 rounded-3xl">
+                   <Zap className="w-8 h-8" />
+                   <p className="text-xs font-bold uppercase tracking-widest">Waiting for Intelligence Signals...</p>
+                </div>
+              ) : (
+                events.map((event, i) => (
+                  <motion.div
+                    key={event.timestamp + i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className={cn(
+                      "p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all",
+                      event.type === 'agent_error' 
+                        ? "bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20" 
+                        : "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/10"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                         "w-10 h-10 rounded-full flex items-center justify-center text-white",
+                         event.type === 'agent_started' ? "bg-blue-500" : 
+                         event.type === 'agent_completed' ? "bg-emerald-500" : "bg-red-500"
+                      )}>
+                        {event.type === 'agent_started' ? <History className="w-5 h-5" /> : 
+                         event.type === 'agent_completed' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                           <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Agent: {event.agent}</p>
+                           <span className="text-[10px] font-bold text-slate-300 dark:text-white/10">•</span>
+                           <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{new Date(event.timestamp).toLocaleTimeString()}</p>
+                        </div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">{event.message}</p>
+                      </div>
+                    </div>
+                    {event.metadata?.duration && (
+                       <Badge variant="outline" className="w-fit h-fit border-slate-200 dark:border-white/10 text-[10px] font-black uppercase">
+                         {event.metadata.duration}s
+                       </Badge>
+                    )}
+                  </motion.div>
+                ))
+              )}
+            </div>
+         </Card>
       </div>
 
       {/* ROI Over Time Area Chart */}

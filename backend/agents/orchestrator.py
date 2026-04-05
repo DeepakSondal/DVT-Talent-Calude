@@ -22,12 +22,34 @@ from agents.supporting_agents import (
     CompanyResearchAgent,
     CRMManagementAgent,
     InterviewSchedulingAgent,
-    AnalyticsAgent,
+    RecruitmentAnalyticsAgent,
     LearningAgent,
 )
 
 log = structlog.get_logger(__name__)
 
+
+_redis_client = None
+
+import atexit
+
+def _close_redis():
+    global _redis_client
+    if _redis_client is not None:
+        try:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(_redis_client.aclose())
+                else:
+                    loop.run_until_complete(_redis_client.aclose())
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+atexit.register(_close_redis)
 
 class AgentOrchestrator:
     """
@@ -44,7 +66,7 @@ class AgentOrchestrator:
     8. Analytics          → Compute metrics
     9. Learning           → Improve strategies
     """
-
+    
     def __init__(self):
         self.agents = {
             "market_intelligence": MarketIntelligenceAgent(),
@@ -54,7 +76,7 @@ class AgentOrchestrator:
             "resume_analysis": ResumeAnalysisAgent(),
             "outreach": OutreachAgent(),
             "crm_management": CRMManagementAgent(),
-            "analytics": AnalyticsAgent(),
+            "analytics": RecruitmentAnalyticsAgent(),
             "learning": LearningAgent(),
         }
         self.shared_memory: Dict[str, Any] = {}
@@ -70,11 +92,26 @@ class AgentOrchestrator:
 
         start_time = datetime.utcnow()
         try:
-            # FIX: Detect if the run method is a coroutine function (async)
             if inspect.iscoroutinefunction(agent.run):
-                result = asyncio.run(agent.run(**(params or {})))
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    result = asyncio.run_coroutine_threadsafe(agent.run(**(params or {})), loop).result()
+                else:
+                    result = asyncio.run(agent.run(**(params or {})))
             else:
                 result = agent.run(**(params or {}))
+                if inspect.isawaitable(result):
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+                    if loop and loop.is_running():
+                        pass  # It's returning a coroutine by design in this case
+                    else:
+                        result = asyncio.run(result)
             
             duration = (datetime.utcnow() - start_time).total_seconds()
             self._log_run(agent_name, "success", result, duration)
@@ -86,9 +123,12 @@ class AgentOrchestrator:
 
     async def _emit_signal(self, type: str, message: str, data: dict = None):
         """Broadcast an intelligence signal to the frontend via Redis"""
+        global _redis_client
         try:
              import redis.asyncio as redis
-             r = redis.from_url(settings.redis_url)
+             if _redis_client is None:
+                 _redis_client = redis.from_url(settings.redis_url)
+             r = _redis_client
              signal = {
                  "type": type,
                  "message": message,
@@ -123,7 +163,7 @@ class AgentOrchestrator:
         try:
             # ── Stage 1: Market Intelligence ─────────────────────────────
             log.info("pipeline_stage", stage=1, name="market_intelligence")
-            market_result = self.agents["market_intelligence"].run(
+            market_result = await self.agents["market_intelligence"].run_async(
                 industry=industry,
                 location=location,
                 limit=target_companies,
@@ -144,7 +184,7 @@ class AgentOrchestrator:
             log.info("pipeline_stage", stage=2, name="company_research")
             enriched_companies = []
             for company in companies[:target_companies]:
-                research = self.agents["company_research"].run(
+                research = await self.agents["company_research"].run_async(
                     company_name=company.get("name", ""),
                     company_domain=company.get("domain", ""),
                 )
@@ -160,7 +200,7 @@ class AgentOrchestrator:
             log.info("pipeline_stage", stage=3, name="lead_discovery")
             all_contacts = []
             for company in enriched_companies[:5]:
-                contacts_result = self.agents["lead_discovery"].run(
+                contacts_result = await self.agents["lead_discovery"].run_async(
                     company_name=company.get("name", ""),
                     company_domain=company.get("domain", ""),
                     limit=3,
@@ -182,7 +222,7 @@ class AgentOrchestrator:
                 roles = company.get("open_roles", ["Software Engineer"])
                 tech_stack = company.get("tech_stack", ["Python"])
                 for role in roles[:1]:
-                    candidate_result = self.agents["candidate_sourcing"].run(
+                    candidate_result = await self.agents["candidate_sourcing"].run_async(
                         job_title=role,
                         skills=tech_stack[:3],
                         location=location if not company.get("remote") else None,
@@ -208,7 +248,7 @@ class AgentOrchestrator:
                         "candidates": all_candidates[:3],
                         "open_roles": company.get("open_roles", []),
                     }
-                    await self.agents["outreach"].run(
+                    outreach_result = await self.agents["outreach"].run_async(
                         outreach_type="client",
                         recipient=contact,
                         context=context,
@@ -221,8 +261,9 @@ class AgentOrchestrator:
 
             # ── Stage 6: CRM & Analytics (New Data-Driven Logic) ──────────
             log.info("pipeline_stage", stage=6, name="crm_and_analytics")
-            crm_result = await self.agents["crm_management"].run()
-            analytics_result = await self.agents["analytics"].run()
+            crm_result = await self.agents["crm_management"].run_async()
+                
+            analytics_result = await self.agents["analytics"].run_async()
             
             await self._emit_signal("agent_success", "Intelligence Stream updated with real-time performance metrics")
             pipeline_results["stages"]["crm_management"] = crm_result

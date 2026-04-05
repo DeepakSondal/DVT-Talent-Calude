@@ -42,7 +42,7 @@ class EmailSentOut(BaseModel):
     id: UUID
     to_email: str
     subject: str
-    status: str
+    status: EmailStatus
     sent_at: Optional[datetime]
     opened_at: Optional[datetime]
     replied_at: Optional[datetime]

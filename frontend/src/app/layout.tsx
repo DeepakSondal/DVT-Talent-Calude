@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   description: "AI-powered recruiting & sales automation platform",
 };
 
+import { ThemeProvider } from "@/providers/theme-provider";
 import { WebSocketProvider } from "@/providers/websocket-provider";
 
 export default function RootLayout({
@@ -18,13 +19,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body
-        className={`${inter.variable} antialiased bg-[#080a0e] text-white`}
+        className={`${inter.variable} antialiased transition-colors duration-300`}
       >
-        <WebSocketProvider>
-          {children}
-        </WebSocketProvider>
+        <ThemeProvider>
+          <WebSocketProvider>
+            {children}
+          </WebSocketProvider>
+        </ThemeProvider>
 
         <Toaster
           position="bottom-right"
