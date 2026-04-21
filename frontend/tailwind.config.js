@@ -9,34 +9,51 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "-apple-system", "system-ui", "sans-serif"],
-        mono: ["Geist Mono", "monospace"],
+        sans: ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "Geist Mono", "monospace"],
       },
       colors: {
-        background: "#080a0e", // Deep Deep black
-        foreground: "#ffffff",
-        card: {
-          DEFAULT: "#0f1117",
-          foreground: "#ffffff",
-        },
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#6366f1", // Electric Indigo
-          foreground: "#ffffff",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT: "#1e293b",
-          foreground: "#ffffff",
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
-        accent: {
-          DEFAULT: "#8b5cf6", // Purple
-          foreground: "#ffffff",
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
-          DEFAULT: "#1e1e2e",
-          foreground: "#94a3b8",
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
-        border: "rgba(255, 255, 255, 0.08)",
-        ring: "#6366f1",
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        naturalist: {
+          sage: "hsl(var(--primary))",
+          moss: "hsl(var(--accent))",
+          cream: "hsl(var(--background))",
+          charcoal: "hsl(var(--foreground))",
+          terracotta: "hsl(var(--destructive))",
+          forest: "hsl(var(--success))",
+        },
       },
       borderRadius: {
         "2xl": "1rem",

@@ -7,9 +7,13 @@ from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -86,8 +90,20 @@ class Settings(BaseSettings):
     # App base URL for tracking pixels, webhooks, etc.
     app_base_url: str = "http://localhost:8000"
 
+    # Voice (ElevenLabs)
+    elevenlabs_api_key: str = ""
+
+    # SAML SSO (Enterprise)
+    saml_idp_entity_id: str = ""
+    saml_idp_sso_url: str = ""
+    saml_idp_cert: str = ""
+
+    # Hub Integrations
+    ziprecruiter_api_key: str = ""
+    dice_api_key: str = ""
+
     # Rate Limiting
-    rate_limit_per_minute: int = 60
+    api_rate_limit: int = 60
     rate_limit_per_hour: int = 1000
 
     # CORS
@@ -134,6 +150,10 @@ class Settings(BaseSettings):
         if self.deepseek_api_key:
             return self.deepseek_model
         return self.openai_model
+
+    # [NEW] Enterprise Hardening: Connection Pooling
+    db_pool_size: int = 20
+    db_max_overflow: int = 10
 
     def validate_required_settings(self) -> None:
         """

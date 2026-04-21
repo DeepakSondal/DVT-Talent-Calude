@@ -94,26 +94,33 @@ class VectorStore:
         return model.encode(text[:2000]).tolist()
 
     # ── Resumes ─────────────────────────────────────────────────────────────
-    def upsert_resume(self, resume_id: str, text: str, metadata: dict):
-        """Add or update a resume in the vector store"""
+    def upsert_resume(self, tenant_id: str, resume_id: str, text: str, metadata: dict):
+        """Add or update a resume with forced tenant metadata isolation"""
         if not CHROMA_AVAILABLE or not self.client:
             return
+        
+        # [NEW] Gap 3: Enforce tenant_id in metadata
+        extended_metadata = {k: str(v) for k, v in metadata.items()}
+        extended_metadata["tenant_id"] = str(tenant_id)
+        
         embedding = self.embed_text(text)
         self.resumes.upsert(
             ids=[resume_id],
             embeddings=[embedding],
-            documents=[text[:2000]],  # Store chunk for context
-            metadatas=[{k: str(v) for k, v in metadata.items()}]
+            documents=[text[:2000]],
+            metadatas=[extended_metadata]
         )
 
-    def search_resumes(self, query_text: str, limit: int = 10, filters: dict = None) -> List[dict]:
-        """Find most similar resumes to a query string"""
+    def search_resumes(self, tenant_id: str, query_text: str, limit: int = 10, filters: dict = None) -> List[dict]:
+        """Find most similar resumes ONLY within the specified tenant space"""
         query_embedding = self.embed_text(query_text)
         
-        # Build ChromaDB 'where' filter if provided
-        where_clause = None
+        # [NEW] Gap 3: Build mandatory tenant 'where' filter
+        where_clause = {"tenant_id": str(tenant_id)}
         if filters:
-            where_clause = {k: str(v) for k, v in filters.items()}
+            # Merge tenant filter with user filters
+            user_filters = {k: str(v) for k, v in filters.items()}
+            where_clause = {"$and": [where_clause, user_filters]}
 
         results = self.resumes.query(
             query_embeddings=[query_embedding],

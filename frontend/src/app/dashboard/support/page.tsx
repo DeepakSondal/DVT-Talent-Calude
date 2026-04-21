@@ -1,73 +1,97 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { HelpCircle, BookOpen, MessageSquare, Mail, Terminal, ExternalLink, Zap, Shield, Search } from "lucide-react";
+import { 
+  HelpCircle, BookOpen, MessageSquare, Mail, Terminal, 
+  ExternalLink, Zap, Shield, Search, Sparkles,
+  LifeBuoy, ChevronRight, ArrowRight
+} from "lucide-react";
+import { SidebarLayout } from "@/components/layout/sidebar-layout";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { cn } from "@/lib/utils";
 
 export default function SupportPage() {
   return (
-    <div className="max-w-5xl space-y-12 font-['Geist',_sans-serif]">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-widest">
-          <Zap className="w-3 h-3" /> Help Center
+    <SidebarLayout>
+      <div className="space-y-16 pb-24 max-w-6xl mx-auto">
+        {/* Naturalist Header */}
+        <div className="text-center space-y-6">
+           <motion.div 
+             initial={{ opacity: 0, scale: 0.9 }}
+             animate={{ opacity: 1, scale: 1 }}
+             className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-primary/5 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em] shadow-sm shadow-primary/5"
+           >
+              <LifeBuoy className="w-3.5 h-3.5 animate-pulse" /> Bridge Support
+           </motion.div>
+           <h1 className="text-5xl lg:text-7xl font-black text-foreground tracking-tighter leading-none italic">
+              How can we <span className="text-primary italic">assist</span> you?
+           </h1>
+           <p className="text-muted-foreground font-bold text-lg max-w-2xl mx-auto italic opacity-60">
+              Access the DVT Talent knowledge base, master autonomous signals, and connect with our intelligence specialists.
+           </p>
+           
+           <div className="max-w-2xl mx-auto flex items-center gap-4 bg-white border border-border/50 rounded-[2rem] px-8 py-5 mt-12 focus-within:border-primary/20 focus-within:shadow-[0_20px_40px_-15px_rgba(132,169,140,0.15)] transition-all group shadow-xl shadow-primary/5">
+              <Search className="w-5 h-5 text-primary/40 group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Search the synthesis documentation..."
+                className="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-widest text-foreground w-full placeholder:lowercase placeholder:tracking-normal placeholder:opacity-30" 
+              />
+           </div>
         </div>
-        <h1 className="text-4xl font-bold text-white tracking-tight">How can we help you?</h1>
-        <p className="text-zinc-500 max-w-xl mx-auto">Access our documentation, FAQs, and support channels to master the DVT Talent AI ecosystem.</p>
-        
-        <div className="max-w-lg mx-auto flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-6 py-3 mt-8 focus-within:border-indigo-500/50 transition-all group">
-          <Search className="w-5 h-5 text-zinc-600 group-focus-within:text-indigo-400" />
-          <input 
-            type="text" 
-            placeholder="Search documentation..."
-            className="bg-transparent border-none outline-none text-sm text-zinc-300 w-full placeholder:text-zinc-700" 
-          />
-        </div>
-      </div>
 
-      {/* Topics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { title: "Getting Started", icon: BookOpen, desc: "Essential guides for your first autonomous campaign." },
-          { title: "API Reference", icon: Terminal, desc: "Technical documentation for developers and integrators." },
-          { title: "Governance", icon: Shield, desc: "Privacy settings, GDPR compliance, and data security." },
-        ].map((topic, i) => (
-          <motion.div
-            key={i}
-            whileHover={{ y: -4 }}
-            className="p-8 bg-white/[0.02] border border-white/[0.06] rounded-3xl hover:bg-white/[0.04] transition-all cursor-pointer group"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 flex items-center justify-center mb-6 group-hover:bg-indigo-600 transition-colors">
-              <topic.icon className="w-6 h-6 text-indigo-400 group-hover:text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">{topic.title}</h3>
-            <p className="text-sm text-zinc-500 leading-relaxed">{topic.desc}</p>
-            <div className="mt-6 flex items-center gap-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest">
-              Learn More <ExternalLink className="w-3 h-3" />
-            </div>
-          </motion.div>
-        ))}
-      </div>
+        {/* Specialized Knowledge Nodes */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+           {[
+             { title: "Operator Initiation", icon: BookOpen, desc: "Step-by-step protocols for your first autonomous recruitment campaign." },
+             { title: "Synthetic API", icon: Terminal, desc: "High-fidelity technical documentation for deep ecosystem integration." },
+             { title: "Signal Governance", icon: Shield, desc: "Privacy compliance metrics, data sovereignty, and security protocols." },
+           ].map((topic: any, i: number) => (
+             <motion.div
+               key={i}
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: i * 0.1 }}
+               whileHover={{ y: -6 }}
+               className="group"
+             >
+               <Card className="p-10 bg-white/40 border-border/50 hover:bg-white hover:border-primary/20 transition-all duration-700 cursor-pointer h-full flex flex-col items-center text-center shadow-xl shadow-primary/5 group-hover:shadow-2xl group-hover:shadow-primary/10">
+                 <div className="w-16 h-16 rounded-[1.5rem] bg-primary/5 flex items-center justify-center mb-8 border border-primary/5 group-hover:bg-primary group-hover:text-white group-hover:rotate-12 transition-all duration-700">
+                    <topic.icon className="w-7 h-7 text-primary group-hover:text-white" />
+                 </div>
+                 <h3 className="text-xl font-black text-foreground mb-3 italic tracking-tight uppercase leading-none">{topic.title}</h3>
+                 <p className="text-[11px] font-black text-muted-foreground leading-relaxed italic opacity-60 mb-8">{topic.desc}</p>
+                 <div className="mt-auto flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-[0.2em] group-hover:gap-4 transition-all">
+                    Explore Node <ArrowRight className="w-3.5 h-3.5" />
+                 </div>
+               </Card>
+             </motion.div>
+           ))}
+        </div>
 
-      {/* Support Channels */}
-      <div className="p-8 bg-gradient-to-br from-indigo-600/10 to-violet-600/10 border border-white/[0.06] rounded-3xl flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="flex items-center gap-6 text-center md:text-left">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.05] flex items-center justify-center border border-white/[0.1]">
-            <MessageSquare className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h4 className="text-xl font-bold text-white">Direct Support</h4>
-            <p className="text-sm text-zinc-500 mt-1">Can't' find what you're' looking for? Contact our specialists.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="px-6 py-3 bg-white text-black rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-zinc-200 transition-all">
-            <MessageSquare className="w-4 h-4" /> Live Chat
-          </button>
-          <button className="px-6 py-3 bg-white/[0.05] border border-white/[0.1] text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-white/[0.1] transition-all">
-            <Mail className="w-4 h-4" /> Email Support
-          </button>
-        </div>
+        {/* Human Assistance Bridge */}
+        <Card className="p-10 bg-primary/5 border-primary/10 rounded-[3rem] flex flex-col lg:flex-row items-center justify-between gap-10 shadow-inner">
+           <div className="flex items-center gap-8 text-center lg:text-left flex-col lg:flex-row">
+              <div className="w-20 h-20 rounded-[2.5rem] bg-white flex items-center justify-center border border-border shadow-md">
+                 <MessageSquare className="w-9 h-9 text-primary" />
+              </div>
+              <div className="space-y-1">
+                 <h4 className="text-3xl font-black text-foreground italic leading-none">Human-Signal Bridge</h4>
+                 <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest opacity-60 italic">If autonomous signals fail, our specialists are ready to intervene.</p>
+              </div>
+           </div>
+           <div className="flex items-center gap-4 w-full lg:w-auto">
+              <Button className="flex-1 lg:flex-none h-14 px-10 bg-primary text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 transition-transform">
+                 <Sparkles className="w-4 h-4" /> Live Bridge
+              </Button>
+              <Button variant="outline" className="flex-1 lg:flex-none h-14 px-10 bg-white border-primary/20 text-primary rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3">
+                 <Mail className="w-4 h-4" /> Email Protocol
+              </Button>
+           </div>
+        </Card>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }

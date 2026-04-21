@@ -1,194 +1,180 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Building2, Search, Filter, Plus, Globe, Linkedin, 
   MapPin, TrendingUp, Cpu, Users, BarChart3, 
-  ArrowUpRight, Info, ExternalLink, Activity
+  ArrowUpRight, Info, ExternalLink, Activity,
+  Sparkles, ShieldCheck, HeartPulse, Target,
+  Zap, Loader2
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { companiesApi, type Company } from "@/lib/api";
-import { Skeleton } from "@/components/shared/skeleton";
+import { SidebarLayout } from "@/components/layout/sidebar-layout";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const loadCompanies = async () => {
-    setLoading(true);
-    try {
-      const res = await companiesApi.list();
-      setCompanies(res.items);
-    } catch (e) {
-      toast.error("Failed to load companies");
-      // Fallback Demo Data
-      setCompanies([
-        { id: "1", name: "Anthropic", industry: "Artificial Intelligence", location: "San Francisco, CA", score: 98, tech_stack: ["Python", "Rust", "Tensorflow"], open_roles_count: 42, website: "https://anthropic.com", description: "AI safety and research company.", is_client: true, created_at: new Date().toISOString() },
-        { id: "2", name: "Vercel", industry: "Web Frameworks", location: "New York, NY", score: 92, tech_stack: ["Next.js", "React", "Rust"], open_roles_count: 18, website: "https://vercel.com", description: "Platform for frontend developers.", is_client: false, created_at: new Date().toISOString() },
-        { id: "3", name: "Ramp", industry: "Fintech", location: "New York, NY", score: 88, tech_stack: ["Python", "Django", "React"], open_roles_count: 24, website: "https://ramp.com", description: "Corporate cards and spend management.", is_client: false, created_at: new Date().toISOString() },
-        { id: "4", name: "Linear", industry: "SaaS", location: "San Francisco, CA", score: 85, tech_stack: ["TypeScript", "React", "PostgreSQL"], open_roles_count: 6, website: "https://linear.app", description: "The issue tracker you'll enjoy using.", is_client: false, created_at: new Date().toISOString() },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, isLoading } = useQuery({
+    queryKey: ["companies"],
+    queryFn: () => companiesApi.list(),
+  });
 
-  useEffect(() => { loadCompanies(); }, []);
-
+  const companies = data?.items || [];
   const filtered = companies.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.industry?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-indigo-500" />
-            Market Intelligence
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1 uppercase tracking-widest text-[10px] font-semibold">
-            Company Tracking & Tech Stack Analysis
-          </p>
+    <SidebarLayout>
+      <div className="space-y-12 pb-20">
+        {/* Naturalist Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+           <div className="space-y-3">
+              <Badge variant="primary" className="py-1 px-4 text-[9px] font-black border-primary/20 bg-primary/5">
+                 <Globe className="w-3.5 h-3.5 mr-2 inline" />
+                 Market Intelligence: Global Nodes
+              </Badge>
+              <h1 className="text-4xl lg:text-6xl font-black tracking-tighter text-foreground leading-none">
+                 Domain <span className="text-primary italic">Intelligence</span>
+              </h1>
+              <p className="text-muted-foreground font-bold text-lg max-w-xl">
+                 Tracking autonomous hiring signals and technical infrastructure maturity.
+              </p>
+           </div>
+           <Button variant="primary" className="gap-2 h-14 px-10 shadow-primary/20">
+              <Plus className="w-5 h-5" />
+              Ingest Domain
+           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all shadow-lg shadow-indigo-600/20">
-            <Plus className="w-4 h-4" />
-            Add Company
-          </button>
-        </div>
-      </div>
-
-      {/* ── Search & Filter ────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" />
-          <input 
-            type="text"
-            placeholder="Search companies by name, industry, or tech stack..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-[#0f1117] border border-white/[0.06] rounded-2xl text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 transition-all"
-          />
-        </div>
-        <button className="flex items-center gap-2 px-6 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-zinc-400 hover:text-white transition-all text-sm font-medium">
-          <Filter className="w-4 h-4" />
-          Industry
-        </button>
-      </div>
-
-      {/* ── Company Grid ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence mode="popLayout">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[280px] rounded-3xl bg-[#0f1117] border border-white/[0.06] p-6 space-y-4">
-                <div className="flex gap-4">
-                  <Skeleton className="w-12 h-12 rounded-2xl" />
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-5 w-2/3" />
-                    <Skeleton className="h-3 w-1/3" />
-                  </div>
-                </div>
-                <Skeleton className="h-20 w-full rounded-2xl" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-8 w-12 rounded-lg" />
-                  <Skeleton className="h-8 w-16 rounded-lg" />
-                  <Skeleton className="h-8 w-14 rounded-lg" />
-                </div>
+        {/* Search & Environment Controls */}
+        <Card className="p-6 bg-white/80 backdrop-blur-xl border-border/50">
+           <div className="flex flex-col md:flex-row gap-6">
+              <div className="flex-1 relative group">
+                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40 group-focus-within:text-primary transition-colors" />
+                 <input 
+                   type="text"
+                   placeholder="Search domains by name, industry, or infrastructure..."
+                   value={search}
+                   onChange={(e) => setSearch(e.target.value)}
+                   className="w-full pl-12 pr-4 py-4 bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 rounded-2xl text-[11px] font-black uppercase tracking-widest text-foreground placeholder:text-muted-foreground/40 placeholder:lowercase placeholder:tracking-normal transition-all"
+                 />
               </div>
-            ))
-          ) : filtered.length > 0 ? (
-            filtered.map((company, i) => (
-              <motion.div
-                key={company.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.05 }}
-                className="group relative bg-[#0f1117] border border-white/[0.06] hover:border-indigo-500/40 rounded-3xl p-6 transition-all shadow-2xl shadow-black/40 hover:-translate-y-1"
-              >
-                {/* Score badge */}
-                <div className="absolute top-6 right-6 flex flex-col items-end">
-                  <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Score</div>
-                  <div className={cn(
-                    "px-2 py-0.5 rounded-lg border text-[10px] font-bold flex items-center gap-1",
-                    company.score > 90 ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/5" : "text-indigo-400 border-indigo-500/30 bg-indigo-500/5"
-                  )}>
-                    <Activity className="w-3 h-3" />
-                    {company.score}
-                  </div>
+              <Button variant="outline" className="h-14 px-8 bg-white gap-3 text-[10px] uppercase font-black tracking-widest">
+                 <Filter className="w-4 h-4 text-primary/40" />
+                 Sector Synthesis
+              </Button>
+           </div>
+        </Card>
+
+        {/* Intelligence Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+           <AnimatePresence mode="popLayout">
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                   <Card key={i} className="h-80 bg-white/40 animate-pulse border-border/20" />
+                ))
+              ) : filtered.length > 0 ? (
+                filtered.map((company, i) => (
+                  <motion.div
+                    key={company.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <Card className="group relative bg-white border-border/40 hover:border-primary/20 p-8 transition-all duration-700 shadow-xl shadow-primary/5 hover:shadow-2xl hover:shadow-primary/10">
+                       {/* Performance Score */}
+                       <div className="absolute top-8 right-8 flex flex-col items-end">
+                          <span className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest mb-1.5">IQ VELOCITY</span>
+                          <div className={cn(
+                             "px-3 py-1 rounded-full border text-[10px] font-black flex items-center gap-2",
+                             company.score > 90 ? "text-emerald-600 border-emerald-500/20 bg-emerald-500/5" : "text-primary border-primary/20 bg-primary/5"
+                          )}>
+                             <HeartPulse className="w-3.5 h-3.5" />
+                             {company.score}%
+                          </div>
+                       </div>
+
+                       <div className="flex gap-6 mb-8">
+                          <div className="w-16 h-16 rounded-[1.5rem] bg-primary/5 border border-primary/5 flex items-center justify-center text-primary font-black text-2xl group-hover:bg-primary group-hover:text-white transition-all duration-700">
+                             {company.name[0]}
+                          </div>
+                          <div className="pt-2 flex-1 min-w-0">
+                             <h3 className="text-xl font-black text-foreground group-hover:text-primary transition-colors tracking-tighter truncate leading-none">
+                                {company.name}
+                             </h3>
+                             <p className="text-[9px] text-muted-foreground font-black uppercase tracking-widest mt-2">{company.industry || "Global Sector"}</p>
+                          </div>
+                       </div>
+
+                       <p className="text-xs font-bold text-muted-foreground/80 leading-relaxed line-clamp-2 h-8 mb-8 italic">
+                          {company.description || "Synthesizing market positioning data for this domain node..."}
+                       </p>
+
+                       <div className="space-y-6">
+                          <div className="flex flex-wrap gap-2">
+                             {company.tech_stack?.slice(0, 4).map(tech => (
+                                <Badge key={tech} variant="secondary" className="px-3 py-0.5 text-[8px] font-black uppercase bg-secondary/5 border-border/50 text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-all">
+                                   {tech}
+                                </Badge>
+                             ))}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2">
+                             <div className="flex items-center gap-4 text-muted-foreground/60">
+                                <div className="flex items-center gap-2">
+                                   <Users className="w-3.5 h-3.5" />
+                                   <span className="text-[9px] font-black uppercase">{company.open_roles_count} Roles</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                   <MapPin className="w-3.5 h-3.5" />
+                                   <span className="text-[9px] font-black uppercase truncate max-w-[80px]">{company.location?.split(',')[0]}</span>
+                                </div>
+                             </div>
+                             
+                             <div className="flex items-center gap-3">
+                                {company.website && (
+                                   <a 
+                                     href={company.website} 
+                                     target="_blank" 
+                                     rel="noopener noreferrer"
+                                     className="w-10 h-10 rounded-xl bg-primary/5 border border-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all duration-500"
+                                   >
+                                      <Globe className="w-4 h-4" />
+                                   </a>
+                                )}
+                                <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-primary/5">
+                                   <ArrowUpRight className="w-5 h-5" />
+                                </Button>
+                             </div>
+                          </div>
+                       </div>
+                    </Card>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full py-40 text-center space-y-8">
+                   <div className="w-24 h-24 rounded-[3rem] bg-primary/5 flex items-center justify-center mx-auto">
+                      <Target className="w-10 h-10 text-primary/20" />
+                   </div>
+                   <div className="space-y-3">
+                      <h3 className="text-2xl font-black text-foreground uppercase tracking-tight italic">Domain Pulse Terminated</h3>
+                      <p className="text-muted-foreground font-black text-[10px] uppercase tracking-widest opacity-60">Expanding search synthesis to discover more market intel nodes.</p>
+                   </div>
+                   <Button variant="outline" onClick={() => setSearch("")}>Reset Search Grid</Button>
                 </div>
-
-                <div className="flex gap-4 mb-6">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600/10 to-violet-600/10 border border-white/[0.06] flex items-center justify-center text-white font-bold text-xl group-hover:scale-105 transition-transform">
-                    {company.name[0]}
-                  </div>
-                  <div className="pt-1">
-                    <h3 className="text-base font-bold text-white group-hover:text-indigo-400 transition-colors tracking-tight line-clamp-1">
-                      {company.name}
-                    </h3>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mt-1">{company.industry}</p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 h-8 mb-6">
-                  {company.description || "No description provided by intelligence agent."}
-                </p>
-
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-1.5">
-                    {company.tech_stack?.slice(0, 4).map(tech => (
-                      <span key={tech} className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[9px] text-zinc-400 font-bold uppercase group-hover:border-indigo-500/20 group-hover:text-indigo-300 transition-all">
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <div className="flex items-center gap-2 text-zinc-500">
-                      <Users className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-semibold">{company.open_roles_count} Open Roles</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-zinc-500">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-semibold tracking-tight">{company.location}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-5 border-t border-white/[0.04] flex items-center justify-between">
-                  {company.website && (
-                    <a 
-                      href={company.website} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-all"
-                    >
-                      <Globe className="w-3.5 h-3.5" />
-                      REVISIT SITE
-                    </a>
-                  )}
-                  <button className="text-[10px] font-bold text-zinc-500 hover:text-white flex items-center gap-1.5 transition-all">
-                    VIEW DETAILS
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </motion.div>
-            ))
-          ) : (
-            <div className="col-span-full py-40 text-center">
-              <Building2 className="w-16 h-16 text-zinc-800 mx-auto mb-4 opacity-30" />
-              <p className="text-zinc-500 font-medium">No intelligence found for companies.</p>
-            </div>
-          )}
-        </AnimatePresence>
+              )}
+           </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }

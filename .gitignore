@@ -46,10 +46,16 @@ frontend/playwright/.cache/
 
 # Database
 *.db
+*.sqlite
 *.sqlite3
+backend/dvt_talent.db
 
-# ChromaDB
+# ChromaDB & Local Vector Stores
 chroma_data/
+backend/chroma_data/
+backend/chroma/
+backend/.chroma/
+.chroma/
 
 # Redis
 dump.rdb
@@ -77,3 +83,10 @@ credentials.json.json
 generate_token.py
 backend/test_agent_diagnostic.py
 .env.production
+
+# AI & Editor Config
+.agent/
+.cursor/
+.superdesign/
+CLAUDE.md
+.windsurfrules

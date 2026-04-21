@@ -1,6 +1,6 @@
 """
-DVT Talent AI — Celery App Configuration
-Background task queue for all agent operations
+DVT Talent AI — Celery App Configuration (Simplified)
+Background task queue for consolidated 5-agent operations.
 """
 from celery import Celery
 from celery.schedules import crontab
@@ -31,38 +31,24 @@ celery_app.conf.update(
 # ── Periodic Schedule (Autonomous Daily Operations) ─────────────────────────
 celery_app.conf.beat_schedule = {
     # Full pipeline runs every morning at 7 AM UTC
-    "daily-full-pipeline": {
+    "daily-full-swarm-pipeline": {
         "task": "workers.tasks.run_full_autonomous_pipeline",
         "schedule": crontab(hour=7, minute=0),
         "args": [],
         "kwargs": {"industry": "technology", "location": "United States", "send_emails": True},
     },
-    # Scan for new hiring companies every 6 hours
-    "discover-companies": {
+    # Unified Discovery scan every 6 hours
+    "swarm-discovery": {
         "task": "workers.tasks.run_agent_task",
         "schedule": crontab(hour="*/6", minute=30),
-        "args": ["market_intelligence"],
+        "args": ["discovery"],
         "kwargs": {"industry": "technology"},
     },
-    # Update CRM every 2 hours (check for email replies)
-    "crm-update": {
+    # Analytics & Learning refresh every 2 hours
+    "swarm-analytics-refresh": {
         "task": "workers.tasks.run_agent_task",
-        "schedule": crontab(minute=0, hour="*/2"),
-        "args": ["crm_management"],
-        "kwargs": {},
-    },
-    # Analytics refresh every hour
-    "analytics-refresh": {
-        "task": "workers.tasks.run_agent_task",
-        "schedule": crontab(minute=15),
+        "schedule": crontab(minute=15, hour="*/2"),
         "args": ["analytics"],
-        "kwargs": {},
-    },
-    # Learning agent runs nightly
-    "nightly-learning": {
-        "task": "workers.tasks.run_agent_task",
-        "schedule": crontab(hour=2, minute=0),
-        "args": ["learning"],
         "kwargs": {},
     },
 }
@@ -74,9 +60,7 @@ def init_worker(**kwargs):
     import structlog
     log = structlog.get_logger()
     try:
-        from agents.resume_analysis_agent import warmup_embedding_model
-        log.info("warming_up_embedding_model")
-        warmup_embedding_model()
-        log.info("embedding_model_warmup_complete")
+        # Note: Embedding warmup now handled inside SourcingAgent if needed
+        log.info("celery_worker_process_init")
     except Exception as e:
-        log.error("embedding_model_warmup_failed", error=str(e))
+        log.error("celery_worker_init_failed", error=str(e))

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -14,7 +14,7 @@ from prometheus_client import make_asgi_app
 
 from config import settings
 from db.models import Base, engine, get_db
-from api.routes import auth, auth_social, users, companies, leads, candidates, jobs, campaigns, analytics, agents, websocket
+from api.routes import auth, auth_social, auth_sso, webhooks, monitoring, users, companies, leads, candidates, jobs, campaigns, analytics, agents, websocket, tenants
 
 log = structlog.get_logger()
 
@@ -33,14 +33,21 @@ async def lifespan(app: FastAPI):
         log.info("database_initialized")
     except Exception as e:
         log.warning("database_initialization_race_or_already_exists", error=str(e))
+    # Initialize and start Market Pulse Scheduler
+    from workers.market_pulse_scheduler import MarketPulseScheduler
+    app.state.scheduler = MarketPulseScheduler()
+    app.state.scheduler.start()
+
     yield
+    app.state.scheduler.shutdown()
     await engine.dispose()
     log.info("dvt_shutdown")
 
 
-# ── App ───────────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address)
+from api.middleware.audit_log import AuditLogMiddleware
+from api.middleware.rate_limit import RateLimitMiddleware
 
+# ── App ───────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="DVT Talent AI API",
     description="Autonomous AI Recruiting & Sales Platform",
@@ -50,27 +57,17 @@ app = FastAPI(
     redoc_url="/api/redoc" if not settings.is_production else None,
 )
 
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 # ── Middleware ────────────────────────────────────────────────────────────
+app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.api_rate_limit)
+app.add_middleware(AuditLogMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    # FIX [M-04]: Restrict to explicit methods/headers instead of wildcard
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    log.info("request", method=request.method, path=request.url.path)
-    response = await call_next(request)
-    log.info("response", status=response.status_code, path=request.url.path)
-    return response
 
 
 # ── Routes ────────────────────────────────────────────────────────────────
@@ -78,6 +75,8 @@ PREFIX = "/api/v1"
 
 app.include_router(auth.router,       prefix=f"{PREFIX}/auth",       tags=["Authentication"])
 app.include_router(auth_social.router, prefix=f"{PREFIX}/auth",       tags=["Social Authentication"])
+app.include_router(auth_sso.router,    prefix=f"{PREFIX}/auth/sso",   tags=["Enterprise SSO"])
+app.include_router(tenants.router,    prefix=f"{PREFIX}/tenants",    tags=["Tenants"])
 app.include_router(users.router,      prefix=f"{PREFIX}/users",      tags=["Users"])
 app.include_router(companies.router,  prefix=f"{PREFIX}/companies",  tags=["Companies"])
 app.include_router(leads.router,      prefix=f"{PREFIX}/leads",      tags=["Leads"])
@@ -86,6 +85,8 @@ app.include_router(jobs.router,       prefix=f"{PREFIX}/jobs",       tags=["Jobs
 app.include_router(campaigns.router,  prefix=f"{PREFIX}/campaigns",  tags=["Campaigns"])
 app.include_router(analytics.router,  prefix=f"{PREFIX}/analytics",  tags=["Analytics"])
 app.include_router(agents.router,     prefix=f"{PREFIX}/agents",     tags=["Agents"])
+app.include_router(webhooks.router,   prefix=f"{PREFIX}/webhooks",   tags=["Webhooks"])
+app.include_router(monitoring.router, prefix=f"{PREFIX}/monitoring", tags=["Monitoring"])
 app.include_router(websocket.router,  prefix=f"{PREFIX}/ws",         tags=["WebSocket"])
 
 # ── Email Open Tracking (no auth — called by email clients) ──────────────
@@ -124,6 +125,28 @@ app.mount("/metrics", metrics_app)
 
 
 # ── Health ────────────────────────────────────────────────────────────────
+@app.get("/api/v1/track/{tracking_id}/click", include_in_schema=False)
+async def track_link_click(tracking_id: _uuid.UUID, url: str, db=Depends(get_db)):
+    """
+    Tracks clicks on personalized links (e.g. Microsites).
+    Increments click count and redirects to target.
+    """
+    from sqlalchemy import update
+    from db.models import EmailSent
+    
+    try:
+        await db.execute(
+            update(EmailSent)
+            .where(EmailSent.tracking_id == str(tracking_id))
+            .values(clicks_count=EmailSent.clicks_count + 1)
+        )
+        await db.commit()
+    except Exception as e:
+        log.error("click_track_failed", error=str(e))
+        
+    return RedirectResponse(url=url)
+
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "healthy", "service": "dvt-talent-ai", "version": "1.0.0"}

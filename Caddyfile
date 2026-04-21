@@ -8,7 +8,7 @@ localhost, 127.0.0.1, dvttalent.com {
 
     # API Routes (Do NOT strip /api prefix - backend expects it)
     handle /api/* {
-        reverse_proxy backend:8000
+        reverse_proxy api:8000
     }
 
     # Security Headers
@@ -30,5 +30,5 @@ localhost, 127.0.0.1, dvttalent.com {
 }
 
 api.dvttalent.com {
-    reverse_proxy backend:8000
+    reverse_proxy api:8000
 }

@@ -2,39 +2,46 @@
 DVT Talent AI — Agents API
 Manual triggers for each autonomous agent
 """
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+import json
+import redis.asyncio as redis
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import AgentTask, AgentTaskStatus, get_db
 from api.routes.auth import get_current_user, User
+from agents.dag_orchestrator import AsyncDAGOrchestrator, get_orchestrator
 
 router = APIRouter()
 
 
+class SwarmTriggerSchema(BaseModel):
+    industry: str
+    location: str
+    sectors: Optional[List[str]] = None
+
+
 class AgentTrigger(BaseModel):
     agent: str
-    params: Optional[dict] = {}
+    params: Dict[str, Any]
 
 
 class PipelineTrigger(BaseModel):
     industry: str = "technology"
     location: str = "United States"
     send_emails: bool = False
+    mock_mode: bool = False
 
 
 VALID_AGENTS = [
-    "market_intelligence",
-    "lead_discovery",
-    "company_research",
-    "candidate_sourcing",
-    "resume_analysis",
+    "discovery",
+    "sourcing",
     "outreach",
-    "interview_scheduling",
-    "crm_management",
     "analytics",
-    "learning",
+    "screening",
 ]
 
 
@@ -70,20 +77,25 @@ async def trigger_agent(
     }
 
 
-@router.post("/run-full-pipeline")
-async def run_full_pipeline(
+@router.post("/swarm/run")
+async def run_swarm_pipeline(
     config: PipelineTrigger,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Trigger the full autonomous pipeline with custom settings"""
+    """Trigger the unified 5-agent swarm pipeline"""
     from workers.tasks import run_full_autonomous_pipeline
     task = run_full_autonomous_pipeline.delay(
         industry=config.industry,
         location=config.location,
-        send_emails=config.send_emails
+        send_emails=config.send_emails,
+        mock_mode=config.mock_mode
     )
-    return {"message": "Full pipeline started", "celery_task_id": task.id}
+    return {
+        "message": "Unified swarm pipeline started", 
+        "celery_task_id": task.id, 
+        "mock": config.mock_mode
+    }
 
 
 @router.get("/tasks")
@@ -112,19 +124,4 @@ async def list_agent_tasks(
             }
             for t in tasks
         ]
-    }
-
-
-@router.get("/status/{task_id}")
-async def get_task_status(
-    task_id: str,
-    current_user: User = Depends(get_current_user),
-):
-    """Get Celery task status"""
-    from workers.celery_app import celery_app
-    result = celery_app.AsyncResult(task_id)
-    return {
-        "task_id": task_id,
-        "status": result.status,
-        "result": result.result if result.ready() else None,
     }

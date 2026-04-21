@@ -1,193 +1,168 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { 
-  Bot, User, Mail, Lock, ArrowRight, 
-  Loader2, BadgeCheck, Zap, Star, ShieldCheck
+  Bot, Shield, Target, Zap, 
+  Github, Mail, Linkedin, Chrome as Google,
+  ArrowRight, Key, Sparkles, UserPlus,
+  CheckCircle2
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: "",
+    email: "",
+    password: "",
+    company: ""
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     try {
-      await authApi.register({ full_name: fullName, email, password });
-      toast.success("Account initialized. Welcome to the Network.");
-      router.push("/dashboard");
+      await authApi.register(formData);
+      toast.success("Deployment Successful", {
+        description: "Your Intelligence Node has been provisioned.",
+        icon: <CheckCircle2 className="w-4 h-4 text-primary" />
+      });
+      router.push("/auth/login");
     } catch (err: any) {
-      const msg = typeof err?.response?.data?.detail === "string" 
-        ? err.response.data.detail 
-        : "Initial protocol failed. Check your data.";
-      toast.error(msg);
+      const msg = err.response?.data?.detail || "Registration failed.";
+      toast.error("Deployment Interrupted", {
+         description: typeof msg === 'string' ? msg : "Please check your credentials.",
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col lg:flex-row overflow-hidden font-sans">
-      {/* ── Left Pane: Visuals & Marketing ────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-[#05070a] border-r border-white/[0.05] flex-col justify-between p-16 overflow-hidden">
-        {/* Background Grid & Glows */}
-        <div className="absolute inset-0 bg-grid opacity-20" />
-        <div className="absolute top-1/2 -right-20 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]" />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-primary/20">
+      {/* Naturalist Background Decor */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-60" />
+      <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-secondary/20 rounded-full blur-[120px]" />
 
-        {/* Logo Area */}
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-indigo-600/20 shadow-lg ring-1 ring-white/10">
-            <Bot className="w-7 h-7 text-white" />
-          </div>
-          <span className="text-2xl font-black tracking-tighter text-white uppercase italic">DVT Talent</span>
-        </div>
-
-        {/* Brand Content */}
-        <div className="relative z-10 space-y-10 max-w-md">
-          <div className="space-y-4">
-             <motion.div
-               initial={{ opacity: 0, y: 10 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: 0.2 }}
-             >
-               <h2 className="text-5xl font-black text-white leading-[1.1] tracking-tight">
-                 Join the <span className="text-gradient-primary">Elite</span> Autonomous Network.
-               </h2>
-             </motion.div>
-             <p className="text-white/40 text-lg leading-relaxed font-medium">
-               Deploy your personal AI recruiting fleet and join thousands of high-velocity teams scaling with DVT Talent.
-             </p>
-          </div>
-
-          <div className="space-y-6">
-             <div className="flex items-center gap-4 group">
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center group-hover:border-primary/40 transition-colors">
-                   <BadgeCheck className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                   <h4 className="text-sm font-black text-white uppercase tracking-widest">Priority Talent Pool</h4>
-                   <p className="text-[10px] text-white/30 font-bold">Access the top 1% of global engineering talent immediately.</p>
-                </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-[540px] relative z-10"
+      >
+        <Card className="bg-white/80 backdrop-blur-xl border-border/50 shadow-[0_40px_80px_-20px_rgba(132,169,140,0.12)] p-12 space-y-10">
+          {/* Naturalist Header */}
+          <div className="text-center space-y-4">
+             <div className="w-16 h-16 rounded-3xl bg-secondary/30 flex items-center justify-center mx-auto shadow-sm mb-6">
+                <UserPlus className="w-7 h-7 text-primary" />
              </div>
-             <div className="flex items-center gap-4 group">
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center group-hover:border-emerald-500/40 transition-colors">
-                   <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                </div>
-                <div>
-                   <h4 className="text-sm font-black text-white uppercase tracking-widest">End-to-End Encryption</h4>
-                   <p className="text-[10px] text-white/30 font-bold">Your hiring strategies and data are yours alone.</p>
-                </div>
-             </div>
-          </div>
-        </div>
-
-        {/* Social Proof Placeholder */}
-        <div className="relative z-10 p-6 rounded-3xl bg-white/[0.02] border border-white/5 backdrop-blur-sm">
-           <div className="flex gap-1 mb-3">
-              {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 text-primary fill-primary" />)}
-           </div>
-           <p className="text-xs text-white/60 leading-relaxed italic mb-4">
-             "DVT Talent has cut our time-to-hire by 60%. The AI outreach agent is truly indistinguishable from a top-tier human recruiter."
-           </p>
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/10" />
-              <div>
-                 <p className="text-[10px] font-black text-white uppercase tracking-widest">Marcus V.</p>
-                 <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest">Head of Talent @ Solaris</p>
-              </div>
-           </div>
-        </div>
-      </div>
-
-      {/* ── Right Pane: The Form ─────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center p-8 lg:p-24 relative overflow-y-auto hidden-scrollbar">
-        {/* Mobile Logo Only */}
-        <div className="lg:hidden absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-3">
-           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
-           </div>
-           <span className="text-xl font-black text-white uppercase tracking-tighter italic">DVT Talent</span>
-        </div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-[420px] space-y-10"
-        >
-          <div className="space-y-3">
-             <h1 className="text-4xl font-black text-white tracking-tight">Initialize Profile</h1>
-             <p className="text-white/30 text-lg font-medium">Create your credentials for the command center.</p>
+             <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase italic leading-none">Initialize Access</h1>
+             <p className="text-muted-foreground font-black text-[10px] tracking-[0.4em] uppercase opacity-60">Deployment Registration / Node Setup</p>
           </div>
 
-          <form onSubmit={handleRegister} className="space-y-6">
-            <Input 
-              label="Operator Name" 
-              name="fullName"
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Deepak Sondal"
-              required
-            />
-
-            <Input 
-              label="Secure Email" 
-              name="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.ai"
-              required
-            />
-            
-            <div className="space-y-2">
-               <label className="text-xs font-bold text-white/50 uppercase tracking-widest pl-1">Creation Key</label>
-               <input
-                 type="password"
-                 name="password"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 placeholder="••••••••"
-                 required
-                 className="flex w-full bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-3 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all h-[52px]"
-               />
+          <form onSubmit={handleRegister} className="space-y-8">
+            <div className="grid grid-cols-2 gap-5">
+              <Input
+                label="Full Name"
+                placeholder="Commander Name"
+                value={formData.full_name}
+                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                required
+                className="col-span-1 bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 h-14 font-black text-[11px] tracking-widest placeholder:lowercase placeholder:tracking-normal"
+              />
+              <Input
+                label="Organization"
+                placeholder="Intelligence Unit"
+                value={formData.company}
+                onChange={(e) => setFormData({...formData, company: e.target.value})}
+                className="col-span-1 bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 h-14 font-black text-[11px] tracking-widest placeholder:lowercase placeholder:tracking-normal"
+              />
+              <Input
+                label="Registered Email"
+                type="email"
+                placeholder="operator@dvttalent.com"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                required
+                className="col-span-2 bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 h-14 font-black text-[11px] tracking-widest placeholder:lowercase placeholder:tracking-normal"
+              />
+              <Input
+                label="Private Access Key"
+                type="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                required
+                className="col-span-2 bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 h-14 font-black text-xs tracking-widest"
+              />
             </div>
 
-            <div className="p-4 rounded-2xl bg-primary/[0.03] border border-primary/10 flex gap-3">
-               <Zap className="w-5 h-5 text-primary shrink-0" />
-               <p className="text-[10px] text-white/40 font-bold leading-normal">
-                  By initializing, you agree to our <span className="text-white">Neural Protocols</span> and <span className="text-white">Operational Guidelines</span>.
-               </p>
-            </div>
-
-            <Button 
-              variant="primary" 
-              size="lg" 
-              type="submit" 
-              className="w-full h-14 rounded-2xl shadow-indigo-600/20 text-md"
-              isLoading={loading}
+            <Button
+              type="submit"
+              className="w-full h-16 text-xs font-black uppercase tracking-[0.3em] shadow-xl shadow-primary/10 active:scale-95 transition-all"
+              isLoading={isLoading}
             >
-               Create Protocol
+              Confirm Deployment
+              <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </form>
 
-          <p className="text-center text-xs font-bold text-white/20">
-            REGISTERED ALREADY?{" "}
-            <Link href="/auth/login" className="text-primary hover:text-white transition-colors uppercase tracking-widest pl-2">System Login</Link>
+          <div className="relative pt-6">
+             <div className="absolute inset-0 flex items-center px-8">
+                <div className="w-full border-t border-border/50" />
+             </div>
+             <div className="relative flex justify-center">
+                <span className="bg-white px-4 text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.5em]">External Protocols</span>
+             </div>
+          </div>
+
+          <div className="flex gap-4 justify-center">
+             {[Google, Linkedin].map((Icon, i) => (
+                <button 
+                  key={i} 
+                  type="button"
+                  className="flex-1 h-14 rounded-2xl bg-secondary/10 border border-transparent hover:bg-white hover:border-primary/20 hover:shadow-lg transition-all flex items-center justify-center gap-3 group px-4"
+                >
+                   <Icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover:text-foreground">
+                      {i === 0 ? "Google" : "LinkedIn"}
+                   </span>
+                </button>
+             ))}
+          </div>
+          
+          <p className="text-center text-[10px] text-muted-foreground pt-4 font-black uppercase tracking-widest">
+            Already verified? <Link href="/auth/login" className="text-primary hover:underline underline-offset-4">Identity Bridge</Link>
           </p>
+        </Card>
+
+        {/* Technical Health Info */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 flex items-center justify-between px-6 opacity-40"
+        >
+           <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Seed Node Ready</span>
+           </div>
+           <div className="flex items-center gap-2">
+              <Shield className="w-3 h-3" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em]">ENCRYPTED LINK 2.0</span>
+           </div>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 }

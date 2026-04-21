@@ -1,429 +1,154 @@
 """
-DVT Talent AI — Agent Orchestrator
-Coordinates the full autonomous recruiting pipeline.
-Manages agent execution order, error handling, and shared memory.
+DVT Talent AI — Simplified Agent Orchestrator
+Coordinates the 5 core agents in a streamlined pipeline.
 """
-import json
 import asyncio
-import inspect
-import uuid
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import structlog
 
-from sqlalchemy import create_engine, text
 from config import settings
-from agents.market_intelligence_agent import MarketIntelligenceAgent
-from agents.lead_discovery_agent import LeadDiscoveryAgent
-from agents.candidate_sourcing_agent import CandidateSourcingAgent
-from agents.resume_analysis_agent import ResumeAnalysisAgent
+from agents.discovery_agent import DiscoveryAgent
+from agents.sourcing_agent import SourcingAgent
 from agents.outreach_agent import OutreachAgent
-from agents.supporting_agents import (
-    CompanyResearchAgent,
-    CRMManagementAgent,
-    InterviewSchedulingAgent,
-    RecruitmentAnalyticsAgent,
-    LearningAgent,
-)
+from agents.analytics_agent import AnalyticsAgent
+from agents.screening_agent import ScreeningAgent
+from agents.critic_agent import CriticAgent
+from agents.market_iq_agent import MarketIntelligenceAgent
 
 log = structlog.get_logger(__name__)
 
-
-_redis_client = None
-
-import atexit
-
-def _close_redis():
-    global _redis_client
-    if _redis_client is not None:
-        try:
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(_redis_client.aclose())
-                else:
-                    loop.run_until_complete(_redis_client.aclose())
-            except Exception:
-                pass
-        except Exception:
-            pass
-
-atexit.register(_close_redis)
-
 class AgentOrchestrator:
     """
-    Orchestrates all DVT Talent AI agents in the correct sequence.
-    
-    Pipeline:
-    1. Market Intelligence → Find hiring companies
-    2. Company Research   → Deep dive each company
-    3. Lead Discovery     → Find decision makers
-    4. Candidate Sourcing → Find qualified candidates
-    5. Resume Analysis    → Score candidates
-    6. Outreach           → Send personalized emails
-    7. CRM Management     → Update pipeline
-    8. Analytics          → Compute metrics
-    9. Learning           → Improve strategies
+    Coordinates the simplified DVT Talent AI pipeline:
+    1. Discovery -> Market scan, lead finding, JD prep.
+    2. Sourcing  -> Global talent search, resume scoring, integrity check.
+    3. Outreach  -> Multichannel communication (locked for conflict resolution).
+    4. Analytics -> Performance reporting.
+    5. Screening -> Technical screen (optional).
     """
     
     def __init__(self):
         self.agents = {
-            "market_intelligence": MarketIntelligenceAgent(),
-            "company_research": CompanyResearchAgent(),
-            "lead_discovery": LeadDiscoveryAgent(),
-            "candidate_sourcing": CandidateSourcingAgent(),
-            "resume_analysis": ResumeAnalysisAgent(),
+            "discovery": DiscoveryAgent(),
+            "sourcing": SourcingAgent(),
             "outreach": OutreachAgent(),
-            "crm_management": CRMManagementAgent(),
-            "analytics": RecruitmentAnalyticsAgent(),
-            "learning": LearningAgent(),
+            "analytics": AnalyticsAgent(),
+            "screening": ScreeningAgent(),
+            "critic": CriticAgent(),
+            "market_iq": MarketIntelligenceAgent()
         }
-        self.shared_memory: Dict[str, Any] = {}
-        self.run_log: List[Dict[str, Any]] = []
-
-    def run_single_agent(self, agent_name: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Run a single agent by name (Synchronous Bridge)"""
-        if agent_name not in self.agents:
-            raise ValueError(f"Unknown agent: {agent_name}")
-
-        agent = self.agents[agent_name]
-        log.info("running_single_agent", agent=agent_name, params=params)
-
-        start_time = datetime.utcnow()
-        try:
-            if inspect.iscoroutinefunction(agent.run):
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    loop = None
-                if loop and loop.is_running():
-                    result = asyncio.run_coroutine_threadsafe(agent.run(**(params or {})), loop).result()
-                else:
-                    result = asyncio.run(agent.run(**(params or {})))
-            else:
-                result = agent.run(**(params or {}))
-                if inspect.isawaitable(result):
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        loop = None
-                    if loop and loop.is_running():
-                        pass  # It's returning a coroutine by design in this case
-                    else:
-                        result = asyncio.run(result)
-            
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            self._log_run(agent_name, "success", result, duration)
-            return result
-        except Exception as e:
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            self._log_run(agent_name, "failed", {"error": str(e)}, duration)
-            raise
-
-    async def _emit_signal(self, type: str, message: str, data: dict = None):
-        """Broadcast an intelligence signal to the frontend via Redis"""
-        global _redis_client
-        try:
-             import redis.asyncio as redis
-             if _redis_client is None:
-                 _redis_client = redis.from_url(settings.redis_url)
-             r = _redis_client
-             signal = {
-                 "type": type,
-                 "message": message,
-                 "data": data or {},
-                 "timestamp": datetime.utcnow().isoformat()
-             }
-             await r.publish("dvt_signals", json.dumps(signal))
-             log.info("signal_emitted", type=type)
-        except Exception as e:
-             log.error("signal_failed", error=str(e))
 
     async def run_full_pipeline(
         self,
         industry: str = "technology",
         location: str = "United States",
-        target_companies: int = 10,
-        target_candidates_per_role: int = 15,
-        send_emails: bool = False,
+        enable_screening: bool = False,
+        enable_microsite: bool = False,
+        mock_mode: bool = False
     ) -> Dict[str, Any]:
-        """
-        Run the complete autonomous recruiting pipeline end-to-end (Asynchronous).
-        """
         pipeline_start = datetime.utcnow()
-        log.info("full_pipeline_started", industry=industry, location=location)
-        await self._emit_signal("pipeline_start", f"Initializing autonomous discovery for {industry} in {location}")
-
-        pipeline_results = {
-            "started_at": pipeline_start.isoformat(),
-            "stages": {},
-        }
+        log.info("unified_pipeline_started", industry=industry, location=location)
+        
+        results = {"stages": {}}
 
         try:
-            # ── Stage 1: Market Intelligence ─────────────────────────────
-            log.info("pipeline_stage", stage=1, name="market_intelligence")
-            market_result = await self.agents["market_intelligence"].run_async(
-                industry=industry,
-                location=location,
-                limit=target_companies,
-            )
-            companies = market_result.get("companies", [])
-            self.shared_memory["companies"] = companies
+            # [NEW] Elite Market Intelligence (Market IQ)
+            # Before Discovery, we scan the macro market trends
+            market_iq_res = await self.agents["market_iq"].run_async(industry=industry, location=location)
+            results["stages"]["market_iq"] = market_iq_res
             
-            # SAVE TO DB (Async)
-            saved_count = 0
-            for c in companies:
-                cid = await self._save_company(c)
-                if cid: saved_count += 1
-                
-            await self._emit_signal("agent_success", f"Market Intel completed: {saved_count} companies identified", {"count": saved_count})
-            pipeline_results["stages"]["market_intelligence"] = {"companies_found": len(companies)}
-
-            # ── Stage 2: Company Research ─────────────────────────────────
-            log.info("pipeline_stage", stage=2, name="company_research")
-            enriched_companies = []
-            for company in companies[:target_companies]:
-                research = await self.agents["company_research"].run_async(
-                    company_name=company.get("name", ""),
-                    company_domain=company.get("domain", ""),
-                )
-                company.update(research)
-                enriched_companies.append(company)
-                await self._save_company(company) # Update with research
+            # [NEW] Elite Gap 1: Speculative Parallelism
+            # Discovery and Sourcing now start at the same time to reduce latency.
+            # Sourcing uses a 'base' JD while Discovery generates the 'optimized' one.
             
-            self.shared_memory["enriched_companies"] = enriched_companies
-            await self._emit_signal("agent_success", f"Company research completed for {len(enriched_companies)} targets")
-            pipeline_results["stages"]["company_research"] = {"companies_enriched": len(enriched_companies)}
-
-            # ── Stage 3: Lead Discovery ───────────────────────────────────
-            log.info("pipeline_stage", stage=3, name="lead_discovery")
-            all_contacts = []
-            for company in enriched_companies[:5]:
-                contacts_result = await self.agents["lead_discovery"].run_async(
-                    company_name=company.get("name", ""),
-                    company_domain=company.get("domain", ""),
-                    limit=3,
-                )
-                contacts = contacts_result.get("contacts", [])
-                for c in contacts:
-                    c["company"] = company
-                    await self._save_lead(c)
-                all_contacts.extend(contacts)
+            discovery_task = asyncio.create_task(self.agents["discovery"].run_async(industry=industry, location=location))
+            base_jd = f"Software Engineer in {industry}, {location}" # Speculative fallback
+            sourcing_task = asyncio.create_task(self.agents["sourcing"].run_async(job_description=base_jd))
             
-            self.shared_memory["contacts"] = all_contacts
-            await self._emit_signal("agent_success", f"Lead discovery finished: {len(all_contacts)} decision makers found")
-            pipeline_results["stages"]["lead_discovery"] = {"contacts_found": len(all_contacts)}
-
-            # ── Stage 4: Candidate Sourcing ───────────────────────────────
-            log.info("pipeline_stage", stage=4, name="candidate_sourcing")
-            all_candidates = []
-            for company in enriched_companies[:3]:
-                roles = company.get("open_roles", ["Software Engineer"])
-                tech_stack = company.get("tech_stack", ["Python"])
-                for role in roles[:1]:
-                    candidate_result = await self.agents["candidate_sourcing"].run_async(
-                        job_title=role,
-                        skills=tech_stack[:3],
-                        location=location if not company.get("remote") else None,
-                        limit=target_candidates_per_role,
+            discovery_res, sourcing_res = await asyncio.gather(discovery_task, sourcing_task)
+            
+            # [NEW] Elite Logic Audit (LEAN-SAAS)
+            # Pass results through Critic to ensure no hallucinations
+            audit_res = await self.agents["critic"].audit_report(sourcing_res, context=f"Job: {industry} in {location}")
+            if not audit_res.get("passed"):
+                log.warning("sourcing_report_refining", issues=audit_res.get("issues"))
+                # Potential re-run logic would go here
+            
+            results["stages"]["discovery"] = discovery_res
+            results["stages"]["sourcing"] = sourcing_res
+            
+            # 3. Outreach
+            candidates = sourcing_res.get("candidates", [])
+            outreach_res = []
+            if candidates:
+                # Run outreach for top candidates
+                for cand in candidates[:5]:
+                    out_res = await self.agents["outreach"].run_async(
+                        candidate=cand, 
+                        job={"title": jd, "company_name": "DVT Partners"},
+                        enable_microsite=enable_microsite
                     )
-                    candidates = candidate_result.get("candidates", [])
-                    for c in candidates:
-                        await self._save_candidate(c)
-                    all_candidates.extend(candidates)
+                    outreach_res.append(out_res)
+            results["stages"]["outreach"] = outreach_res
             
-            self.shared_memory["candidates"] = all_candidates
-            await self._emit_signal("agent_success", f"Candidate sourcing complete: {len(all_candidates)} matched profiles")
-            pipeline_results["stages"]["candidate_sourcing"] = {"candidates_found": len(all_candidates)}
-
-            # ── Stage 5: Outreach (New Async Logic) ───────────────────────
-            log.info("pipeline_stage", stage=5, name="outreach")
-            outreach_count = 0
-            if all_contacts:
-                for contact in all_contacts[:target_companies]:
-                    company = contact.get("company", {})
-                    context = {
-                        "company": company,
-                        "candidates": all_candidates[:3],
-                        "open_roles": company.get("open_roles", []),
-                    }
-                    outreach_result = await self.agents["outreach"].run_async(
-                        outreach_type="client",
-                        recipient=contact,
-                        context=context,
-                        send_email=send_emails
-                    )
-                    outreach_count += 1
-                
-            await self._emit_signal("agent_success", f"Outreach drafting complete: {outreach_count} hyper-personalized messages ready.")
-            pipeline_results["stages"]["outreach"] = {"drafts_created": outreach_count}
-
-            # ── Stage 6: CRM & Analytics (New Data-Driven Logic) ──────────
-            log.info("pipeline_stage", stage=6, name="crm_and_analytics")
-            crm_result = await self.agents["crm_management"].run_async()
-                
-            analytics_result = await self.agents["analytics"].run_async()
+            # 4. Analytics
+            analytics_res = await self.agents["analytics"].run_async()
+            results["stages"]["analytics"] = analytics_res
             
-            await self._emit_signal("agent_success", "Intelligence Stream updated with real-time performance metrics")
-            pipeline_results["stages"]["crm_management"] = crm_result
-            pipeline_results["stages"]["analytics"] = analytics_result
+            # 5. Selective Screening & Verification (LEAN-SAAS)
+            # Only run expensive AI-led screening on Top 80th percentile candidates
+            if enable_screening or settings.get("ENABLE_SCREENING", False):
+                screening_res = []
+                # [NEW] Cost Control: Filter for high match_score
+                top_candidates = [c for c in candidates if c.get("match_score", 0) >= 80]
+                
+                for cand in top_candidates[:3]:
+                    scr_res = await self.agents["screening"].run_async(candidate=cand, job={"title": jd})
+                    screening_res.append(scr_res)
+                results["stages"]["screening"] = screening_res
 
         except Exception as e:
-            log.error("pipeline_error", error=str(e), exc_info=True)
-            await self._emit_signal("agent_failed", f"Pipeline interrupted: {str(e)}")
-            pipeline_results["error"] = str(e)
+            log.error("pipeline_failed", error=str(e))
+            results["error"] = str(e)
 
-        pipeline_end = datetime.utcnow()
-        pipeline_results["completed_at"] = pipeline_end.isoformat()
-        pipeline_results["duration_seconds"] = (pipeline_end - pipeline_start).total_seconds()
+        results["duration_seconds"] = (datetime.utcnow() - pipeline_start).total_seconds()
+        return results
 
-        await self._emit_signal("pipeline_complete", "Autonomous recruiting cycle successfully finished")
-        return pipeline_results
+    # ── COPILOT MODE: Stateful Phase Execution ──────────────────────────────
+    async def run_discovery_phase(self, industry: str, location: str) -> Dict[str, Any]:
+        """Phase 1: Generates Market IQ and Job Description for user approval."""
+        results = {}
+        results["market_iq"] = await self.agents["market_iq"].run_async(industry, location)
+        results["discovery"] = await self.agents["discovery"].run_async(industry, location)
+        # Returns so the user can manually edit the JD before sourcing
+        return results
 
-    def _log_run(self, agent_name: str, status: str, result: dict, duration: float):
-        entry = {
-            "agent": agent_name,
-            "status": status,
-            "duration_seconds": duration,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-        self.run_log.append(entry)
-        log.info("agent_run_logged", **entry)
+    async def run_sourcing_phase(self, job_description: str, location: str) -> Dict[str, Any]:
+        """Phase 2: Finds candidates based on the manual/approved JD and passes logic audit."""
+        results = {}
+        sourcing_res = await self.agents["sourcing"].run_async(job_description=job_description)
+        
+        # Audit the AI's findings
+        audit_res = await self.agents["critic"].audit_report(sourcing_res, context=f"Job: {job_description[:50]}")
+        sourcing_res["audit_passed"] = audit_res.get("passed", True)
+        sourcing_res["audit_issues"] = audit_res.get("issues", [])
+        
+        results["sourcing"] = sourcing_res
+        # Returns so user can manually delete bad candidates before outreach
+        return results
 
-    def get_agent_status(self) -> Dict[str, Any]:
-        """Return status of all agents"""
-        return {
-            "agents": list(self.agents.keys()),
-            "last_runs": self.run_log[-10:] if self.run_log else [],
-            "shared_memory_keys": list(self.shared_memory.keys()),
-        }
-
-    # ── DB Persistence Helpers (Asynchronous & Robust Upsert) ────────────────
-    async def _get_async_session(self):
-        from db.models import AsyncSessionLocal
-        return AsyncSessionLocal()
-
-    async def _save_company(self, data: dict):
-        """Asynchronously save or update a company found by AI agents"""
-        async with await self._get_async_session() as session:
-            try:
-                from sqlalchemy import select
-                from db.models import Company
-                
-                # Check for existing company by domain
-                domain = data.get("domain", "").lower()
-                stmt = select(Company).where(Company.domain == domain)
-                result = await session.execute(stmt)
-                company = result.scalar_one_or_none()
-                
-                if company:
-                    # Update existing
-                    company.score = data.get("company_score", company.score)
-                    company.tech_stack = data.get("tech_stack", company.tech_stack)
-                    company.last_enriched = datetime.utcnow()
-                    log.info("company_updated", domain=domain)
-                else:
-                    # Create new
-                    company = Company(
-                        name=data.get("name", "Unknown"),
-                        domain=domain,
-                        industry=data.get("industry", "Technology"),
-                        location=data.get("location", "Global"),
-                        score=data.get("company_score", 50),
-                        tech_stack=data.get("tech_stack", []),
-                        last_enriched=datetime.utcnow()
-                    )
-                    session.add(company)
-                    log.info("company_created", domain=domain)
-                
-                await session.commit()
-                return company.id
-            except Exception as e:
-                await session.rollback()
-                log.error("db_save_failed", type="company", error=str(e))
-                return None
-
-    async def _save_lead(self, data: dict):
-        """Asynchronously save a lead and link to company"""
-        async with await self._get_async_session() as session:
-            try:
-                from db.models import Lead, Company, Contact
-                from sqlalchemy import select
-                
-                # 1. Find or Create Contact
-                email = data.get("email", "").lower()
-                stmt = select(Contact).where(Contact.email == email)
-                res = await session.execute(stmt)
-                contact = res.scalar_one_or_none()
-                
-                if not contact:
-                    contact = Contact(
-                        first_name=data.get("first_name", "AI"),
-                        last_name=data.get("last_name", "Lead"),
-                        email=email,
-                        title=data.get("title", "Unknown"),
-                        linkedin_url=data.get("linkedin_url"),
-                        meta_data=data
-                    )
-                    session.add(contact)
-                    await session.flush()
-                
-                # 2. Find Company
-                domain = data.get("domain", "").lower() or data.get("company", {}).get("domain", "").lower()
-                stmt = select(Company).where(Company.domain == domain)
-                res = await session.execute(stmt)
-                comp = res.scalar_one_or_none()
-                
-                # 3. Create Lead
-                lead = Lead(
-                    company_id=comp.id if comp else None,
-                    contact_id=contact.id,
-                    status="new",
-                    source="ai_discovery",
-                    score=data.get("score", 0),
-                    meta_data=data
-                )
-                session.add(lead)
-                await session.commit()
-                log.info("lead_persisted", email=email)
-            except Exception as e:
-                await session.rollback()
-                log.error("db_save_failed", type="lead", error=str(e))
-
-    async def _save_candidate(self, data: dict):
-        """Asynchronously save or update a candidate"""
-        async with await self._get_async_session() as session:
-            try:
-                from db.models import Candidate
-                from sqlalchemy import select
-                
-                email = data.get("email", "").lower()
-                if not email:
-                     email = f"ai_{uuid.uuid4()}@dvt.local"
-
-                stmt = select(Candidate).where(Candidate.email == email)
-                res = await session.execute(stmt)
-                candidate = res.scalar_one_or_none()
-                
-                if candidate:
-                    candidate.score = data.get("score", candidate.score)
-                    candidate.title = data.get("title", candidate.title)
-                    log.info("candidate_updated", email=email)
-                else:
-                    candidate = Candidate(
-                        first_name=data.get("first_name", "AI"),
-                        last_name=data.get("last_name", "Candidate"),
-                        email=email,
-                        title=data.get("title", "Software Engineer"),
-                        location=data.get("location", "Remote"),
-                        score=data.get("score", 0),
-                        meta_data=data
-                    )
-                    session.add(candidate)
-                    log.info("candidate_created", email=email)
-                
-                await session.commit()
-            except Exception as e:
-                await session.rollback()
-                log.error("db_save_failed", type="candidate", error=str(e))
+    async def run_outreach_phase(self, approved_candidates: List[Dict[str, Any]], job: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Phase 3: Screens and drafts emails only for user-approved candidates."""
+        results = []
+        for cand in approved_candidates:
+            # 1. Screen
+            scr_res = await self.agents["screening"].run_async(candidate=cand, job=job)
+            
+            # 2. Outreach
+            out_res = await self.agents["outreach"].run_async(candidate=cand, job=job)
+            
+            cand_result = {"candidate_id": cand.get("id"), "screening": scr_res, "outreach": out_res}
+            results.append(cand_result)
+            
+        return results

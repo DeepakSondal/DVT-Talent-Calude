@@ -26,6 +26,12 @@ db_url = settings.database_url or "sqlite+aiosqlite:///:memory:"
 engine = create_async_engine(
     db_url,
     echo=settings.app_env == "development",
+    # [NEW] Enterprise Hardening: Connection Pooling
+    # Uses settings to handle high concurrency during pilots
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_timeout=30,
+    pool_recycle=1800,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -96,6 +102,7 @@ class InterviewStatus(str, enum.Enum):
 class AgentTaskStatus(str, enum.Enum):
     PENDING = "pending"
     RUNNING = "running"
+    AWAITING_INPUT = "awaiting_input" # [NEW] Copilot Mode Pause State
     COMPLETED = "completed"
     FAILED = "failed"
     RETRYING = "retrying"
@@ -107,10 +114,23 @@ class TimestampMixin:
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
+class Tenant(Base, TimestampMixin):
+    __tablename__ = "tenants"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
+    name = Column(String(255), nullable=False)
+    domain = Column(String(255), unique=True)
+    is_active = Column(Boolean, default=True)
+    settings = Column(JSON, default=dict)
+    subscription_plan = Column(String(50), default="starter")
+
+
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -124,6 +144,7 @@ class User(Base, TimestampMixin):
     provider_id = Column(String(255))
 
     # Relationships
+    tenant = relationship("Tenant")
     leads = relationship("Lead", back_populates="owner")
     campaigns = relationship("EmailCampaign", back_populates="owner")
 
@@ -132,6 +153,7 @@ class Company(Base, TimestampMixin):
     __tablename__ = "companies"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     name = Column(String(255), nullable=False, index=True)
     domain = Column(String(255), unique=True)
     website = Column(String(500))
@@ -164,6 +186,7 @@ class Lead(Base, TimestampMixin):
     __tablename__ = "leads"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), index=True)
     contact_id = Column(UUID(as_uuid=True), ForeignKey("contacts.id"))
@@ -187,6 +210,7 @@ class Contact(Base, TimestampMixin):
     __tablename__ = "contacts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), index=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
@@ -211,6 +235,7 @@ class Job(Base, TimestampMixin):
     __tablename__ = "jobs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text)
@@ -237,6 +262,7 @@ class Candidate(Base, TimestampMixin):
     __tablename__ = "candidates"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, index=True)
@@ -270,6 +296,7 @@ class Resume(Base, TimestampMixin):
     __tablename__ = "resumes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     candidate_id = Column(UUID(as_uuid=True), ForeignKey("candidates.id"), index=True)
     file_name = Column(String(255))
     file_url = Column(String(500))
@@ -286,6 +313,7 @@ class JobCandidate(Base, TimestampMixin):
     __tablename__ = "job_candidates"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id"), index=True)
     candidate_id = Column(UUID(as_uuid=True), ForeignKey("candidates.id"), index=True)
     match_score = Column(Float, default=0.0)
@@ -323,6 +351,7 @@ class EmailSent(Base, TimestampMixin):
     __tablename__ = "emails_sent"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     campaign_id = Column(UUID(as_uuid=True), ForeignKey("email_campaigns.id"), index=True)
     candidate_id = Column(UUID(as_uuid=True), ForeignKey("candidates.id"))
     contact_id = Column(UUID(as_uuid=True), ForeignKey("contacts.id"))
@@ -333,6 +362,8 @@ class EmailSent(Base, TimestampMixin):
     sent_at = Column(DateTime(timezone=True))
     opened_at = Column(DateTime(timezone=True))
     replied_at = Column(DateTime(timezone=True))
+    microsite_url = Column(String(500))
+    clicks_count = Column(Integer, default=0)
     gmail_message_id = Column(String(255))
     tracking_id = Column(String(255), unique=True, default=lambda: str(uuid.uuid4()))
     meta_data = Column("metadata", JSON, default=dict)
@@ -378,6 +409,7 @@ class AgentTask(Base, TimestampMixin):
     __tablename__ = "agent_tasks"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     agent_name = Column(String(100), nullable=False, index=True)
     task_type = Column(String(100), nullable=False)
     status = Column(Enum(AgentTaskStatus), default=AgentTaskStatus.PENDING, index=True)
@@ -389,6 +421,34 @@ class AgentTask(Base, TimestampMixin):
     completed_at = Column(DateTime(timezone=True))
     celery_task_id = Column(String(255))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    
+    # [NEW] Copilot Mode State Tracking
+    pipeline_mode = Column(String(50), default="autonomous") # 'autonomous' or 'copilot'
+    current_checkpoint = Column(String(100)) # 'discovery_complete', 'sourcing_complete', etc.
+
+
+class CreditBalance(Base, TimestampMixin):
+    __tablename__ = "credit_balances"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), unique=True)
+    balance = Column(Integer, default=0)
+    last_recharge = Column(DateTime(timezone=True))
+    total_spent = Column(Integer, default=0)
+
+
+class AuditLog(Base, TimestampMixin):
+    __tablename__ = "audit_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    action = Column(String(100), nullable=False)  # e.g. "VIEW_CANDIDATE", "UPDATE_CAMPAIGN"
+    entity_type = Column(String(50))
+    entity_id = Column(UUID(as_uuid=True))
+    ip_address = Column(String(50))
+    user_agent = Column(String(500))
+    meta_data = Column("metadata", JSON, default=dict)
 
 
 class AnalyticsEvent(Base, TimestampMixin):

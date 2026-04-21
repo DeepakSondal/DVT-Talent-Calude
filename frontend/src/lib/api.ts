@@ -210,7 +210,7 @@ export const candidatesApi = {
 
 // ── Leads API ──────────────────────────────────────────────────────────────
 export const leadsApi = {
-  list: (params?: { page?: number; status?: string }): Promise<PaginatedResponse<Lead>> =>
+  list: (params?: { page?: number; status?: string; search?: string }): Promise<PaginatedResponse<Lead>> =>
     api.get("/leads", { params }).then((r) => r.data),
   get: (id: string): Promise<Lead> => api.get(`/leads/${id}`).then((r) => r.data),
   create: (data: Partial<Lead>) => api.post("/leads", data).then((r) => r.data),
@@ -247,14 +247,38 @@ export const usersApi = {
   deactivate: (id: string) => api.patch(`/users/${id}/deactivate`).then((r) => r.data),
 };
 
+// ── Tenants API ──────────────────────────────────────────────────────────
+export const tenantsApi = {
+  getMe: () => api.get("/tenants/me").then((r) => r.data),
+  updateMe: (data: any) => api.patch("/tenants/me", data).then((r) => r.data),
+  getTeam: () => api.get("/tenants/team").then((r) => r.data),
+};
+export const monitoringApi = {
+  getRecentSignals: (limit: number = 50): Promise<any[]> =>
+    api.get("/monitoring/signals/recent", { params: { limit } }).then((r) => r.data),
+  getMediations: () => api.get("/monitoring/mediations").then((r) => r.data),
+};
+
 // ── Agents API ────────────────────────────────────────────────────────────
 export const agentsApi = {
   trigger: (agent: string, params: any = {}) => api.post("/agents/trigger", { agent, params }).then((r) => r.data),
-  runPipeline: (config: { industry: string; location: string; send_emails: boolean }) =>
-    api.post("/agents/run-full-pipeline", config).then((r) => r.data),
+  runSwarm: (config: { industry: string; location: string; send_emails: boolean; mock_mode?: boolean }) =>
+    api.post("/agents/swarm/run", config).then((r) => r.data),
   listTasks: (limit: number = 50): Promise<{ tasks: AgentTask[] }> =>
     api.get("/agents/tasks", { params: { limit } }).then((r) => r.data),
   getStatus: (taskId: string) => api.get(`/agents/status/${taskId}`).then((r) => r.data),
+};
+
+// ── Copilot API (Human-in-the-Loop) ───────────────────────────────────────
+export const copilotApi = {
+  startDiscovery: (data: { industry: string; location: string; tenant_id: string }) => 
+    api.post("/copilot/discovery", data).then((r) => r.data),
+  
+  startSourcing: (data: { task_id: string; approved_jd: string; location: string; tenant_id: string }) => 
+    api.post("/copilot/sourcing", data).then((r) => r.data),
+    
+  startOutreach: (data: { task_id: string; approved_candidates: any[]; job_context: any; tenant_id: string }) => 
+    api.post("/copilot/outreach", data).then((r) => r.data),
 };
 
 export default api;

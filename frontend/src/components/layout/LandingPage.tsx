@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { 
   ArrowRight, Bot, Target, Zap, Mail, Shield, 
   Search, Users, Calendar, BarChart3, ChevronRight,
-  FileText, Briefcase, Sparkles
+  FileText, Briefcase, Sparkles, CheckCircle2,
+  Globe, ShieldCheck, HeartPulse
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -27,7 +28,7 @@ export default function LandingPage() {
     initial: { opacity: 0, y: 20 },
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true },
-    transition: { duration: 0.6 }
+    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
   };
 
   const stagger = {
@@ -39,341 +40,311 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 overflow-x-hidden font-sans">
-      {/* Background Decor */}
-      <div className="fixed inset-0 bg-grid -z-10" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full -z-10" />
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden font-sans selection:bg-primary/20">
+      {/* Organic Background Elements */}
+      <div className="fixed inset-0 pointer-events-none -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[800px] bg-primary/5 blur-[120px] rounded-full -z-10 opacity-60" />
 
       {/* Navigation */}
       <nav 
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b",
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
           isScrolled 
-            ? "py-4 bg-white/70 backdrop-blur-xl border-slate-200 shadow-sm" 
-            : "py-6 bg-transparent border-transparent"
+            ? "py-4 bg-background/80 backdrop-blur-2xl border-b border-border/50" 
+            : "py-8 bg-transparent"
         )}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+            <div className="w-11 h-11 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
               <Bot className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-black tracking-tight text-slate-950 uppercase italic">
-              DVT Talent
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl font-black tracking-tight text-foreground uppercase leading-none">
+                DVT Talent
+              </span>
+              <span className="text-[9px] font-black tracking-[0.2em] text-primary uppercase mt-1">
+                Natural Intelligence
+              </span>
+            </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8 text-slate-500 font-black uppercase text-[10px] tracking-widest">
-            <Link href="#features" className="hover:text-blue-600 transition-colors">Agents</Link>
-            <Link href="#how-it-works" className="hover:text-blue-600 transition-colors">Workflow</Link>
-            <Link href="#preview" className="hover:text-blue-600 transition-colors">Platform</Link>
-            <Link href="/dashboard">
-              <Button variant="primary" size="sm" className="shadow-lg shadow-blue-600/10">Launch Console</Button>
+          <div className="hidden md:flex items-center gap-10">
+            {["Platform", "Agents", "Success", "Pricing"].map((item) => (
+              <Link 
+                key={item} 
+                href={`#${item.toLowerCase()}`} 
+                className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors"
+              >
+                {item}
+              </Link>
+            ))}
+            <div className="h-4 w-px bg-border mx-2" />
+            <Link href="/auth/login" className="text-[11px] font-black uppercase tracking-[0.2em] hover:text-primary transition-colors">
+              Sign In
+            </Link>
+            <Link href="/auth/register">
+              <Button variant="primary" size="sm" className="h-10 px-6">Free Trial</Button>
             </Link>
           </div>
         </div>
       </nav>
 
       <main>
-        {/* Hero Section */}
-        <section className="relative pt-32 pb-24 lg:pt-56 lg:pb-40">
-          <div className="max-w-7xl mx-auto px-6 text-center lg:text-left">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
+        {/* Hero: Humance-Centric AI */}
+        <section className="relative pt-40 pb-24 lg:pt-64 lg:pb-48">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="grid lg:grid-cols-2 gap-20 items-center">
               <motion.div 
                 initial="initial"
                 whileInView="whileInView"
                 viewport={{ once: true }}
                 variants={stagger}
-                className="space-y-10"
+                className="space-y-10 text-center lg:text-left"
               >
                 <motion.div variants={fadeIn}>
-                  <Badge variant="primary" className="py-1 px-4 text-xs font-black uppercase tracking-widest bg-blue-50 text-blue-600 border-blue-100">
-                    <Sparkles className="w-3.5 h-3.5 mr-2 inline" />
-                    AI-Powered Talent Revolution
+                  <Badge variant="primary" className="py-1.5 px-5 text-[10px] font-black border-primary/10 bg-primary/5">
+                    <Sparkles className="w-3.5 h-3.5 mr-2 inline text-primary" />
+                    The Future of Organic Recruitment
                   </Badge>
                 </motion.div>
 
-                <motion.h1 variants={fadeIn} className="text-6xl lg:text-8xl font-black leading-[1] tracking-tighter text-slate-950">
-                  Automate <br />
-                  <span className="text-gradient-primary">Hiring & Sales</span>
-                  <br /> with AI Agents
+                <motion.h1 variants={fadeIn} className="text-6xl lg:text-8xl font-black leading-[0.95] tracking-tighter text-foreground">
+                  Grow Your <br />
+                  <span className="text-primary italic">Intelligence</span> <br />
+                  Automated.
                 </motion.h1>
 
-                <motion.p variants={fadeIn} className="text-xl text-slate-400 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
-                  The first recruiting & sales command center that thinks, scouts, and outreaches for you. 
-                  Scale your human potential with autonomous intelligence.
+                <motion.p variants={fadeIn} className="text-lg lg:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed font-bold">
+                  Scale your human potential with 10 autonomous AI agents. 
+                  DVT Talent syncs discovery, outreach, and analysis into one 
+                  calm, high-performance command bridge.
                 </motion.p>
 
                 <motion.div variants={fadeIn} className="flex flex-col sm:flex-row items-center gap-5 justify-center lg:justify-start">
-                  <Link href="/dashboard" className="w-full sm:w-auto">
-                    <Button size="lg" className="w-full h-16 px-10 text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-600/20">
-                      Start Initialization
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                  <Link href="/auth/register" className="w-full sm:w-auto">
+                    <Button size="lg" className="w-full h-16 px-12 group">
+                      Initialize Trial
+                      <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </Link>
                   <Link href="#preview" className="w-full sm:w-auto">
-                    <Button variant="secondary" size="lg" className="w-full h-16 px-10 text-sm font-black uppercase tracking-widest bg-white border-slate-200 shadow-sm">
-                      Watch Intelligence
+                    <Button variant="outline" size="lg" className="w-full h-16 px-12">
+                      Watch the Swarm
                     </Button>
                   </Link>
+                </motion.div>
+
+                <motion.div variants={fadeIn} className="pt-10 flex flex-wrap items-center justify-center lg:justify-start gap-8 opacity-40 grayscale group hover:grayscale-0 transition-all duration-700">
+                   <div className="flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"><Globe className="w-4 h-4" /> Global Reach</div>
+                   <div className="flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"><ShieldCheck className="w-4 h-4" /> ISO Certified</div>
+                   <div className="flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"><HeartPulse className="w-4 h-4" /> Humane AI</div>
                 </motion.div>
               </motion.div>
 
               <motion.div 
-                initial={{ opacity: 0, x: 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, scale: 0.95, rotate: -2 }}
+                whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
                 className="relative hidden lg:block"
               >
-                <div className="relative z-10 rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-2xl bg-white p-2">
-                  <div className="rounded-[2rem] overflow-hidden">
+                <div className="relative z-10 rounded-[4rem] p-3 bg-white/20 backdrop-blur-2xl border border-white/30 shadow-[0_50px_100px_-20px_rgba(132,169,140,0.15)] overflow-hidden">
+                  <div className="rounded-[3.2rem] overflow-hidden bg-background border border-border/50">
                     <Image 
-                      src="/dvt_talent_dashboard_premium_refactored_1775024300321.png" 
-                      alt="DVT Talent Command Center"
+                      src="/naturalist_ai_recruiting_dashboard_mockup_1775521383094.png" 
+                      alt="DVT Talent Command Center v2"
                       width={1200}
                       height={800}
-                      className="w-full h-auto object-cover"
+                      className="w-full h-auto object-cover hover:scale-105 transition-transform duration-[2s]"
                     />
                   </div>
                 </div>
-                <div className="absolute -top-10 -right-10 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -z-10" />
-                <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full -z-10" />
+                <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/10 blur-[100px] rounded-full -z-10" />
+                <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-secondary/20 blur-[100px] rounded-full -z-10" />
               </motion.div>
             </div>
           </div>
         </section>
 
-        {/* Features Matrix */}
-        <section id="features" className="py-32 relative bg-white border-y border-slate-100">
+        {/* Feature Matrix: Transparent Intelligence */}
+        <section id="agents" className="py-32 lg:py-56 relative bg-secondary/5">
           <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-24 space-y-5">
-              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest border-slate-200">Core Capabilities</Badge>
-              <h2 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tight">Autonomous Expertise</h2>
-              <p className="text-slate-400 max-w-2xl mx-auto text-lg font-medium leading-relaxed">
-                Four specialized AI agents designed to handle your manual workflows with superhuman precision.
-              </p>
+            <div className="grid lg:grid-cols-3 gap-20 items-end mb-24">
+               <div className="col-span-2 space-y-6">
+                  <Badge variant="outline" className="text-[9px] font-black tracking-[0.3em] uppercase">Core Intelligence</Badge>
+                  <h2 className="text-4xl lg:text-7xl font-black tracking-tighter text-foreground leading-[0.9]">
+                    10 Agents. One <span className="text-primary italic">Flawless</span> Ecosystem.
+                  </h2>
+               </div>
+               <p className="text-muted-foreground font-bold text-lg leading-relaxed">
+                  We don't just automate tasks. We plant autonomous talent seeds that grow into your high-performing workforce.
+               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[
                 { 
                   icon: Target, 
-                  title: "AI Sales Agent", 
-                  desc: "Hyper-focused lead generation. Scans 50+ platforms to find your ideal high-intent enterprise buyers.",
-                  color: "bg-blue-50",
-                  iconColor: "text-blue-600",
-                  border: "border-blue-100"
+                  title: "Discovery Swarm", 
+                  desc: "Scanning 50+ professional networks to find candidates that don't just 'fit' but thrive.",
+                  tags: ["Real-time", "Multi-modal"]
                 },
                 { 
                   icon: Mail, 
-                  title: "Outreach Agent", 
-                  desc: "Personalized cold emails at scale. Crafts unique, research-backed messages that get 3x higher reply rates.",
-                  color: "bg-purple-50",
-                  iconColor: "text-purple-600",
-                  border: "border-purple-100"
+                  title: "Natural Outreach", 
+                  desc: "Drafting messages that feel written by a mentor, not a bot. 4x higher quality replies garantueed.",
+                  tags: ["Humane", "Adaptive"]
                 },
                 { 
                   icon: Users, 
-                  title: "Recruiting AI", 
-                  desc: "Autonomous candidate sourcing. Ranks global talent based on deep skill analysis and cultural fit.",
-                  color: "bg-emerald-50",
-                  iconColor: "text-emerald-600",
-                  border: "border-emerald-100"
+                  title: "Integrity Lab", 
+                  desc: "Deep skill verification and resume de-biasing. We see the talent, not the template.",
+                  tags: ["De-biased", "Deep-scan"]
                 },
                 { 
-                  icon: Bot, 
-                  title: "Resume Analyzer", 
-                  desc: "Instant candidate scoring. Processes thousands of resumes per minute with human-level understanding.",
-                  color: "bg-amber-50",
-                  iconColor: "text-amber-600",
-                  border: "border-amber-100"
+                  icon: BarChart3, 
+                  title: "Yield Velocity", 
+                  desc: "Predictive analytics that tell you when your next hire will land before you even interview them.",
+                  tags: ["Predictive", "ROI"]
+                },
+                { 
+                  icon: Shield, 
+                  title: "Sovereign Compliance", 
+                  desc: "Global data protection baked into every agent signal. Zero-trust security, maximum trust relationships.",
+                  tags: ["GDPR+", "Encrypted"]
+                },
+                { 
+                  icon: Zap, 
+                  title: "Pulse Bridge", 
+                  desc: "A real-time WebSocket connection to your AI's reasoning. Total transparency in every decision.",
+                  tags: ["WS", "Infinite"]
                 }
               ].map((feat, i) => (
-                <Card 
-                  key={i}
-                  className={cn("bg-white border hover:shadow-xl transition-all duration-500 p-8", feat.border)}
+                <motion.div
+                   key={i}
+                   initial={{ opacity: 0, y: 30 }}
+                   whileInView={{ opacity: 1, y: 0 }}
+                   viewport={{ once: true }}
+                   transition={{ delay: i * 0.1 }}
                 >
-                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-8", feat.color)}>
-                    <feat.icon className={cn("w-7 h-7", feat.iconColor)} />
-                  </div>
-                  <h3 className="text-xl font-black text-slate-900 mb-4">{feat.title}</h3>
-                  <p className="text-slate-400 leading-relaxed text-sm font-medium">{feat.desc}</p>
-                  <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Learn More</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </Card>
+                  <Card className="p-10 group bg-background/40 hover:bg-white transition-all duration-700 h-full border-primary/5 hover:border-primary/20">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center mb-8 group-hover:bg-primary transition-colors duration-500">
+                      <feat.icon className="w-6 h-6 text-primary group-hover:text-white transition-colors duration-500" />
+                    </div>
+                    <h3 className="text-2xl font-black text-foreground mb-4 tracking-tight">{feat.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed font-bold mb-8">{feat.desc}</p>
+                    <div className="flex gap-2">
+                       {feat.tags.map(tag => (
+                          <Badge key={tag} variant="secondary" className="bg-primary/5 text-primary/60 border-transparent">{tag}</Badge>
+                       ))}
+                    </div>
+                  </Card>
+                </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* How It Works */}
-        <section id="how-it-works" className="py-32 relative">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="grid lg:grid-cols-2 gap-20 items-center">
-              <div className="space-y-12">
-                <div className="space-y-5 text-center lg:text-left">
-                  <Badge variant="primary" className="bg-blue-50 text-blue-600 border-blue-100">The Workflow</Badge>
-                  <h2 className="text-4xl lg:text-6xl font-black leading-tight text-slate-900 tracking-tight">
-                    From Goal to <br /> Outcome in <span className="text-blue-600 tracking-tighter">3 Steps</span>
-                  </h2>
+        {/* Proof Section: Organic Trust */}
+        <section className="py-32 lg:py-56 bg-background">
+          <div className="max-w-5xl mx-auto px-6 text-center">
+             <motion.div 
+               {...fadeIn}
+               className="space-y-12"
+             >
+                <h2 className="text-5xl lg:text-8xl font-black tracking-tighter text-foreground leading-none">
+                  Trusted by the <br /> <span className="text-primary tracking-[-0.05em] px-4 py-2 border-2 border-primary/20 rounded-[2rem] inline-block mt-4 italic">Modern Vanguard</span>
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-12 items-center opacity-30 invert dark:invert-0 grayscale hover:grayscale-0 transition-all duration-1000">
+                   <div className="text-xl font-black tracking-tighter uppercase italic">Helix Robotics</div>
+                   <div className="text-xl font-black tracking-tighter uppercase">Vanguard VC</div>
+                   <div className="text-xl font-black tracking-tighter uppercase italic">Bloom Labs</div>
+                   <div className="text-xl font-black tracking-tighter uppercase">Terraform</div>
                 </div>
-
-                <div className="space-y-10">
-                  {[
-                    { step: "01", title: "Input Your Target", desc: "Define your ideal candidate or customer profile in plain natural language." },
-                    { step: "02", title: "AI Intelligence Deploy", desc: "Our agents scan global databases, social signals, and public records for matches." },
-                    { step: "03", title: "Execute & Analyze", desc: "AI initiates personalized outreach or ranking, delivering results directly to your dashboard." },
-                  ].map((s, i) => (
-                    <motion.div 
-                      key={i}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.2 }}
-                      viewport={{ once: true }}
-                      className="flex gap-8 items-start group"
-                    >
-                      <span className="text-5xl font-black text-slate-100 group-hover:text-indigo-100 transition-colors">{s.step}</span>
-                      <div className="space-y-2 pt-1">
-                        <h4 className="text-lg font-black text-slate-900">{s.title}</h4>
-                        <p className="text-slate-400 leading-relaxed font-medium">{s.desc}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative">
-                <Card className="bg-white border-slate-200 shadow-2xl p-0 overflow-hidden ring-1 ring-slate-100">
-                  <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-rose-400" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                    <div className="ml-auto w-20 h-1.5 bg-slate-200 rounded-full" />
-                  </div>
-                  <div className="p-8 space-y-6">
-                    <div className="flex gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 animate-pulse" />
-                      <div className="flex-1 space-y-3 pt-1">
-                        <div className="w-1/2 h-2.5 bg-slate-100 rounded-full" />
-                        <div className="w-full h-1.5 bg-slate-50 rounded-full" />
-                        <div className="w-full h-1.5 bg-slate-50 rounded-full" />
-                      </div>
-                    </div>
-                    <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100">
-                      <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mb-2">Agent Active</p>
-                      <p className="text-xs text-slate-600 font-medium italic leading-relaxed">"Sourcing top 10% React developers in NYC for fintech expansion..."</p>
-                      <div className="mt-4 h-1 w-full bg-blue-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-600 w-2/3 animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-                <div className="absolute -z-10 inset-0 bg-primary/5 blur-[80px] rounded-full scale-125" />
-              </div>
-            </div>
+             </motion.div>
           </div>
         </section>
 
-        {/* Product Preview */}
-        <section id="preview" className="py-32 overflow-hidden bg-white/50 border-y border-slate-100">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-24 space-y-5">
-              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest border-slate-200">The Command Center</Badge>
-              <h2 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tight">Beautiful Intelligence</h2>
-              <p className="text-slate-400 max-w-2xl mx-auto text-lg font-medium leading-relaxed">
-                Everything you need to orchestrate your AI workforce. No complex setup, just pure results.
-              </p>
-            </div>
-
-            <motion.div 
-              initial={{ y: 100, opacity: 0 }}
-              whileInView={{ y: 0, opacity: 1 }}
-              transition={{ duration: 1 }}
-              className="relative rounded-[3rem] border border-slate-200 overflow-hidden shadow-2xl bg-white p-4"
-            >
-              <div className="rounded-[2.5rem] overflow-hidden border border-slate-100">
-                <Image 
-                  src="/dashboard_overview_1775155760122.png" 
-                  alt="DVT Talent UI structure"
-                  width={1920}
-                  height={1080}
-                  className="w-full h-auto"
-                />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-transparent to-transparent" />
+        {/* Final Call: Planting the Seed */}
+        <section className="py-48 relative overflow-hidden bg-primary/5">
+          <div className="max-w-4xl mx-auto px-6 text-center space-y-12 relative z-10">
+            <motion.div {...fadeIn}>
+               <h2 className="text-6xl lg:text-[10rem] font-black leading-[0.85] tracking-tighter text-foreground">
+                  Ready to <br />
+                  <span className="text-primary italic">Grow?</span>
+               </h2>
             </motion.div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="py-48 relative overflow-hidden">
-          <div className="max-w-5xl mx-auto px-6 text-center space-y-12">
-            <motion.h2 
-              initial={{ scale: 0.9, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              className="text-5xl lg:text-9xl font-black leading-tight tracking-tighter text-slate-950"
-            >
-              Ready to <br />
-              <span className="text-slate-300">Launch?</span>
-            </motion.h2>
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              whileInView={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
+               initial={{ y: 20, opacity: 0 }}
+               whileInView={{ y: 0, opacity: 1 }}
+               transition={{ delay: 0.3 }}
+               className="flex flex-col sm:flex-row items-center justify-center gap-6"
             >
-              <Link href="/dashboard">
-                <Button size="lg" className="px-16 py-8 text-2xl h-auto font-black uppercase tracking-widest shadow-2xl shadow-blue-600/30">
-                  Deploy Your AI Agent
+              <Link href="/auth/register" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full h-20 px-16 text-xl">
+                  Start Initialization
+                </Button>
+              </Link>
+              <Link href="#contact" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full h-20 px-12 bg-white">
+                   Speak with Growth Lead
                 </Button>
               </Link>
             </motion.div>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/60">
+               Secure Deployment • 14-Day Organic Growth Trial • No Commitments
+            </p>
           </div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-indigo-500/5 blur-[120px] -z-10" />
+
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[500px] bg-primary/10 blur-[150px] -z-10 rounded-full" />
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="py-20 border-t border-slate-100 relative bg-white">
+      {/* Natural Footer */}
+      <footer className="py-32 border-t border-border/50 relative bg-background overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-16 mb-20">
-            <div className="col-span-2 space-y-8">
+          <div className="grid md:grid-cols-4 gap-20 mb-32">
+            <div className="col-span-2 space-y-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
-                  <Bot className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+                  <Bot className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-black tracking-tight text-slate-900 uppercase">DVT Talent</span>
+                <span className="text-xl font-black tracking-tight text-foreground uppercase">DVT Talent</span>
               </div>
-              <p className="text-slate-400 max-w-sm leading-relaxed font-medium">
-                The leading AI platform for recruiting and sales automation. 
-                Built for teams who want to scale intelligence.
+              <p className="text-muted-foreground max-w-sm leading-relaxed font-bold text-lg">
+                The world's first organic AI command center for talent and growth leaders. 
+                Built to scale intelligence, beautifully.
               </p>
+              <div className="flex gap-10">
+                 {["Twitter", "LinkedIn", "Substack"].map(social => (
+                    <Link key={social} href="#" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors">{social}</Link>
+                 ))}
+              </div>
             </div>
-            <div className="space-y-6">
-              <h4 className="font-black uppercase text-[10px] tracking-[0.3em] text-slate-300">Platform</h4>
-              <ul className="space-y-4 text-sm text-slate-500 font-bold">
-                <li><Link href="#features" className="hover:text-primary transition-colors">AI Agents</Link></li>
-                <li><Link href="#how-it-works" className="hover:text-primary transition-colors">Workflow</Link></li>
-                <li><Link href="/dashboard" className="hover:text-primary transition-colors">Command Center</Link></li>
+            <div className="space-y-8">
+              <h4 className="font-black uppercase text-[10px] tracking-[0.4em] text-primary">Ecosystem</h4>
+              <ul className="space-y-4 text-sm font-bold">
+                <li><Link href="#features" className="text-muted-foreground hover:text-primary transition-colors">AI Agents</Link></li>
+                <li><Link href="#how-it-works" className="text-muted-foreground hover:text-primary transition-colors">Our Workflow</Link></li>
+                <li><Link href="/dashboard" className="text-muted-foreground hover:text-primary transition-colors">Command Bridge</Link></li>
               </ul>
             </div>
-            <div className="space-y-6">
-              <h4 className="font-black uppercase text-[10px] tracking-[0.3em] text-slate-300">Legal</h4>
-              <ul className="space-y-4 text-sm text-slate-500 font-bold">
-                <li><Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Terms of Service</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Contact</Link></li>
+            <div className="space-y-8">
+              <h4 className="font-black uppercase text-[10px] tracking-[0.4em] text-primary">Guidelines</h4>
+              <ul className="space-y-4 text-sm font-bold">
+                <li><Link href="#" className="text-muted-foreground hover:text-primary transition-colors">Privacy Ethics</Link></li>
+                <li><Link href="#" className="text-muted-foreground hover:text-primary transition-colors">Terms of Growth</Link></li>
+                <li><Link href="#" className="text-muted-foreground hover:text-primary transition-colors">Contact Humans</Link></li>
               </ul>
             </div>
           </div>
-          <div className="pt-10 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6 text-slate-300 text-[10px] font-black uppercase tracking-widest">
-            <p>© 2026 DVT Talent AI. Autonomous Workforce Inc.</p>
-            <div className="flex gap-8">
-              <Link href="#" className="hover:text-slate-600 transition-colors">Twitter</Link>
-              <Link href="#" className="hover:text-slate-600 transition-colors">LinkedIn</Link>
-            </div>
+          <div className="pt-20 border-t border-border/20 flex flex-col md:flex-row justify-between items-center gap-10">
+             <div className="flex items-center gap-3 opacity-30">
+               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+               <p className="text-[9px] font-black uppercase tracking-widest text-foreground">All Agents Operational • v2.0.4-NATURALIST</p>
+             </div>
+             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">© 2026 DVT Talent AI. Autonomous Workforce Inc. All Organic Rights Reserved.</p>
           </div>
         </div>
       </footer>

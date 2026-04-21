@@ -7,6 +7,7 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
+ENV NEXT_TELEMETRY_DISABLED 1
 
 # ---------- Dependencies ----------
 FROM base AS deps
@@ -18,8 +19,6 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-ENV NEXT_TELEMETRY_DISABLED 1
 
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
@@ -35,7 +34,7 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app ./
+COPY --from=builder --chown=nextjs:nodejs /app ./
 
 USER nextjs
 

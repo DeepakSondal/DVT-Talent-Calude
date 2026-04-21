@@ -28,12 +28,19 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     const connect = () => {
       if (typeof window === "undefined") return;
 
-      const token = localStorage.getItem("dvt_access_token");
+      const token = localStorage.getItem("dvt_token");
       if (!token) return;
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       // Using standard backend port 8000 for standard dev setup or inferred from environment
-      const host = process.env.NEXT_PUBLIC_API_URL?.replace("http://", "").replace("https://", "").split("/api")[0] || "localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      let host = apiUrl.replace("http://", "").replace("https://", "").split("/api")[0];
+      
+      // If host is empty (relative URL) or defaults to localhost, try to use the current window's host
+      if (!host || host === "" || (host === "localhost:8000" && typeof window !== "undefined" && window.location.hostname !== "localhost")) {
+        host = window.location.host;
+      }
+      
       const wsUrl = `${protocol}//${host}/api/v1/ws/pipeline-events?token=${token}`;
 
       console.log(`[WS] Syncing with Intelligence Stream at ${wsUrl}`);

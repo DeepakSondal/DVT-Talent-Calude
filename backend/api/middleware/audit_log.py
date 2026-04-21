@@ -1,0 +1,59 @@
+import time
+import json
+import uuid
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+from db.models import AsyncSessionLocal, AuditLog
+import structlog
+
+log = structlog.get_logger(__name__)
+
+# List of sensitive paths or actions to log specifically
+SENSITIVE_PATHS = ["/candidates", "/leads", "/auth/login", "/users"]
+
+class AuditLogMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 1. Capture Request Metadata
+        start_time = time.time()
+        
+        # We need to process the request first to see if it succeeded and to get user info
+        # User info is often added to request.state by AuthMiddleware
+        response: Response = await call_next(request)
+        
+        # 2. Determine Action
+        path = request.url.path
+        method = request.method
+        
+        # Only log mutations or sensitive views
+        is_sensitive = any(path.startswith(p) for p in SENSITIVE_PATHS)
+        is_mutation = method in ["POST", "PUT", "PATCH", "DELETE"]
+        
+        if is_sensitive or is_mutation:
+            try:
+                # 3. Extract User & Tenant (Assumes AuthMiddleware has run)
+                user = getattr(request.state, "user", None)
+                user_id = user.id if user else None
+                tenant_id = getattr(user, "tenant_id", None) if user else None
+                
+                # 4. Save Audit Log
+                async with AsyncSessionLocal() as session:
+                    audit_entry = AuditLog(
+                        tenant_id=tenant_id,
+                        user_id=user_id,
+                        action=f"{method} {path}",
+                        entity_type=path.split("/")[1] if len(path.split("/")) > 1 else "root",
+                        ip_address=request.client.host if request.client else "unknown",
+                        user_agent=request.headers.get("user-agent", "unknown"),
+                        meta_data={
+                            "status_code": response.status_code,
+                            "query_params": dict(request.query_params),
+                            "duration_ms": int((time.time() - start_time) * 1000)
+                        }
+                    )
+                    session.add(audit_entry)
+                    await session.commit()
+            except Exception as e:
+                # Never block the actual request due to audit logging failure
+                log.error("audit_log_failed", error=str(e))
+        
+        return response

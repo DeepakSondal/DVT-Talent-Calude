@@ -47,6 +47,9 @@ class LeadOut(BaseModel):
     value_estimate: Optional[float]
     created_at: datetime
     updated_at: datetime
+    # Flattened company fields for frontend convenience
+    company_name: Optional[str] = None
+    domain: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -57,18 +60,40 @@ async def list_leads(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = None,
+    search: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = select(Lead).where(Lead.owner_id == current_user.id)
+    from sqlalchemy.orm import selectinload
+    query = select(Lead).options(selectinload(Lead.company)).where(Lead.owner_id == current_user.id)
     count_q = select(func.count(Lead.id)).where(Lead.owner_id == current_user.id)
     if status:
         query = query.where(Lead.status == status)
         count_q = count_q.where(Lead.status == status)
+    if search:
+        search_filter = f"%{search}%"
+        # Search in company name or notes
+        from db.models import Company
+        query = query.join(Lead.company).where(
+            (Company.name.ilike(search_filter)) | (Lead.notes.ilike(search_filter))
+        )
+        count_q = count_q.join(Lead.company).where(
+            (Company.name.ilike(search_filter)) | (Lead.notes.ilike(search_filter))
+        )
     total = (await db.execute(count_q)).scalar()
     query = query.order_by(desc(Lead.score)).offset((page - 1) * page_size).limit(page_size)
     items = (await db.execute(query)).scalars().all()
-    return {"items": [LeadOut.model_validate(i) for i in items], "total": total, "page": page, "page_size": page_size}
+    
+    # Manually populate flattened fields
+    out_items = []
+    for i in items:
+        out = LeadOut.model_validate(i)
+        if i.company:
+            out.company_name = i.company.name
+            out.domain = i.company.domain
+        out_items.append(out)
+
+    return {"items": out_items, "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", status_code=201)
@@ -82,11 +107,20 @@ async def create_lead(data: LeadCreate, db: AsyncSession = Depends(get_db), curr
 
 @router.get("/{lead_id}")
 async def get_lead(lead_id: UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(select(Lead).where(Lead.id == lead_id, Lead.owner_id == current_user.id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Lead).options(selectinload(Lead.company))
+        .where(Lead.id == lead_id, Lead.owner_id == current_user.id)
+    )
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
-    return LeadOut.model_validate(lead)
+    
+    out = LeadOut.model_validate(lead)
+    if lead.company:
+        out.company_name = lead.company.name
+        out.domain = lead.company.domain
+    return out
 
 
 @router.patch("/{lead_id}")
@@ -103,6 +137,29 @@ async def update_lead(lead_id: UUID, data: LeadUpdate, db: AsyncSession = Depend
     await db.commit()
     await db.refresh(lead)
     return LeadOut.model_validate(lead)
+
+
+@router.get("/pipeline")
+async def get_pipeline_leads(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get all leads grouped by status for the Kanban board"""
+    from sqlalchemy.orm import selectinload
+    query = select(Lead).options(selectinload(Lead.company)).where(Lead.owner_id == current_user.id)
+    result = await db.execute(query)
+    leads = result.scalars().all()
+    
+    # Grouping logic
+    pipeline = {status: [] for status in LeadStatus}
+    for lead in leads:
+        out = LeadOut.model_validate(lead)
+        if lead.company:
+            out.company_name = lead.company.name
+            out.domain = lead.company.domain
+        pipeline[lead.status].append(out)
+        
+    return pipeline
 
 
 @router.delete("/{lead_id}", status_code=204)
