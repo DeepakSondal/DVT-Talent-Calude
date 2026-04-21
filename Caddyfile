@@ -2,7 +2,7 @@
     email admin@dvttalent.com
 }
 
-localhost, 127.0.0.1, dvttalent.com {
+(frontend_config) {
     # Next.js Frontend
     reverse_proxy frontend:3000
 
@@ -27,6 +27,18 @@ localhost, 127.0.0.1, dvttalent.com {
 
     # Compression
     encode zstd gzip
+}
+
+localhost {
+    import frontend_config
+}
+
+127.0.0.1 {
+    import frontend_config
+}
+
+dvttalent.com {
+    import frontend_config
 }
 
 api.dvttalent.com {
