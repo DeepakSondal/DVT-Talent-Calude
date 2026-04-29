@@ -132,8 +132,7 @@ async def social_callback(provider: str, request: Request, db: AsyncSession = De
     # This prevents token leakage and protects against XSS.
     
     # Get the primary frontend origin for redirect
-    frontend_origin = settings.cors_origins[0]
-    response = RedirectResponse(url=f"{frontend_origin}/dashboard")
+    response = RedirectResponse(url=f"{settings.frontend_url}/dashboard")
     
     # Set the session cookie
     response.set_cookie(

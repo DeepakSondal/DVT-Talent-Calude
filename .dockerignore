@@ -1,0 +1,59 @@
+# 🐳 DVT TALENT AI — DOCKER IGNORE
+
+# ── VCS & IDE ───────────────────────────────────────────────────────────────
+.git/
+.github/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── PYTHON ARTIFACTS ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# ── DATABASE & SECRETS (CRITICAL) ──────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+backend/dvt_talent.db
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# ── LOCAL VECTOR STORES ─────────────────────────────────────────────────────
+chroma_data/
+chroma_db/
+backend/chroma_data/
+backend/chroma/
+.chroma/
+
+# ── FRONTEND ARTIFACTS ──────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/test-results/
+
+# ── DOCS & SCRIPTS ──────────────────────────────────────────────────────────
+docs/
+backend/tests/
+backend/demos/
+*.md
+CLAUDE.md
+.agent/
+.cursor/
+.superdesign/
+
+# ── OS SPECIFIC ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini

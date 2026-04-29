@@ -35,8 +35,10 @@ export default function SwarmCommandCenter() {
         { id: "market_iq", name: "Market IQ", role: "Trends Analyst", icon: Globe, status: "idle", color: "blue" },
         { id: "discovery", name: "Discovery", role: "Signal Finder", icon: Search, status: "idle", color: "indigo" },
         { id: "sourcing", name: "Sourcing", role: "Node Discovery", icon: Brain, status: "idle", color: "purple" },
+        { id: "screening", name: "Screening", role: "Integrity Audit", icon: Activity, status: "idle", color: "amber" },
         { id: "critic", name: "Critic", role: "Logic Audit", icon: ShieldCheck, status: "idle", color: "rose" },
         { id: "outreach", name: "Outreach", role: "Signal Sequence", icon: Mail, status: "idle", color: "emerald" },
+        { id: "analytics", name: "Analytics", role: "Pattern Discovery", icon: BarChart3, status: "idle", color: "cyan" },
     ]);
 
     const wsRef = useRef<WebSocket | null>(null);
@@ -141,7 +143,7 @@ export default function SwarmCommandCenter() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Agent Pulse Grid */}
                 <div className="lg:col-span-8 space-y-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                         {agents.map((agent, i) => (
                             <motion.div
                                 key={agent.id}

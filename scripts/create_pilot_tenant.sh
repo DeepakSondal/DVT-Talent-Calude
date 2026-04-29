@@ -103,7 +103,7 @@ async def create_pilot_tenant():
         credit_tx = CreditTransaction(
             tenant_id=tenant.id,
             amount=PILOT_CREDITS,
-            type=CreditTransactionType.credit,
+            type=CreditTransactionType.CREDIT,
             description="Pilot program — complimentary credit grant",
         )
         session.add(credit_tx)
@@ -123,7 +123,7 @@ async def create_pilot_tenant():
                 tenant_id=tenant.id,
                 email=ADMIN_EMAIL,
                 full_name="Pilot Admin",
-                role=UserRole.admin,
+                role=UserRole.ADMIN,
                 hashed_password=hash_password(ADMIN_PASS),
                 is_active=True,
                 is_verified=True,
@@ -203,19 +203,12 @@ async def create_pilot_tenant():
         print("  🎉  Pilot Tenant Ready!")
         print("═══════════════════════════════════════════════════════════")
         print(f"  Tenant ID   : {tenant.id}")
-        print(f"  Login URL   : http://localhost:3000/auth/login")
+        print(f"  Login URL   : http://127.0.0.1:3000/auth/login")
         print(f"  Email       : {ADMIN_EMAIL}")
         print(f"  Password    : {ADMIN_PASS}")
         print(f"  Credits     : {PILOT_CREDITS:,}")
         print("═══════════════════════════════════════════════════════════")
         print("")
-        print("  Next steps:")
-        print("  1. Share login credentials with pilot customer")
-        print("  2. Send them PILOT_AGREEMENT.md to sign")
-        print("  3. Schedule a 30-min onboarding call")
-        print("  4. Add them to your Slack / WhatsApp support channel")
-        print("")
-
 
 asyncio.run(create_pilot_tenant())
 PYTHON

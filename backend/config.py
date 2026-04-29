@@ -98,7 +98,8 @@ class Settings(BaseSettings):
     github_token: str = ""
 
     # App base URL for tracking pixels, webhooks, etc.
-    app_base_url: str = "http://localhost:8000"
+    app_base_url: str = "http://127.0.0.1:8000"
+    frontend_url: str = "http://127.0.0.1:3000"
 
     # Voice (ElevenLabs)
     elevenlabs_api_key: str = ""
