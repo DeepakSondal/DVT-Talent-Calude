@@ -1,62 +1,51 @@
-# DVT Talent AI — Agent Communication Fabric
+# DVT Talent AI — Agent Communication Fabric (v1.1)
 
-The **Communication Fabric** enables a loosely coupled, event-driven architecture for the DVT Talent AI agent swarm. While the `AsyncDAGOrchestrator` maintains the high-level strategic pipeline, individual agents can now share memory and trigger reactive workflows in real-time.
+The **Communication Fabric** enables a loosely coupled, event-driven architecture for the DVT Talent AI agent swarm. With the migration to **Pydantic AI**, agents now utilize a dual-layer communication strategy: **Direct Context Sharing** for task-specific data and **Event-Driven Telemetry** for global visibility.
 
 ## 🏗️ Architecture
 ```mermaid
 graph TD
-    A[Market Intel Agent] -->|Emit: new_company| BUS[Redis Event Bus]
-    BUS -->|Channel: agent.discovery| B[Lead Discovery Agent]
-    BUS -->|Channel: agent.discovery| C[Candidate Sourcing Agent]
+    A[Market IQ Agent] -->|Signal: swarm_start| BUS[Redis Telemetry Bus]
+    A -->|Pass Context| B[Discovery Agent]
+    B -->|Broadcast: jd_generated| BUS
     
-    A -->|Remember: company_meta| MEM[Shared Memory Store]
-    B -->|Recall: company_meta| MEM
+    B -->|Shared Memory| MEM[Redis State Store]
+    C[Sourcing Agent] -->|Recall Context| MEM
     
-    B -->|Emit: new_lead| BUS
-    BUS -->|Channel: agent.outreach| D[Outreach Agent]
+    C -->|Signal: candidate_found| BUS
+    BUS -->|WS Stream| UI[Nexus Dashboard]
 ```
 
-## 🧠 Shared Memory Layer
-Agents use `SharedMemory` to store transactional state that other agents might need.
-- **Key Pattern**: `{entity}:{id}:{suffix}`
-- **TTL**: Default is 1 hour (3600s).
+## 🧠 Shared Context (Pydantic AI)
+Agents share critical resources and tenant isolation metadata via the `AgentDeps` object. This is passed through the `RunContext` at each step of the pipeline.
 
-### Usage
+### Shared Dependencies
+- **HTTP Client**: A unified `httpx.AsyncClient` for all web requests.
+- **Tenant ID**: Ensures every agent operation is strictly isolated to the current user's workspace.
+- **Global Settings**: Access to shared LLM configurations and mock-mode toggles.
+
+## 📡 Telemetry & Event Bus
+The `EventBus` uses Redis Pub/Sub to broadcast real-time signals to the **Nexus Dashboard**.
+
+### Telemetry Signals
+- `agent_start`: Broadcast when an agent begins a new sequence.
+- `agent_info`: Detailed progress logs (displayed in the Neural Stream).
+- `agent_success`: Confirmation of task completion.
+- `agent_error`: Graceful failure reports with error context.
+
+### Emitting Signals
 ```python
-# To remember something
-await self.remember("company:spacex:tech_stack", {"stack": ["Rust", "C++"]})
-
-# To recall something
-data = await self.recall("company:spacex:tech_stack")
+# Via the orchestrator or tasks relay
+broadcast_signal(
+    message="Scanning market for technology roles...",
+    signal_type="agent_info",
+    tenant_id=current_tenant_id
+)
 ```
 
-## 📡 Event Bus
-The `EventBus` uses Redis Pub/Sub for cross-agent signaling.
-
-### Standard Channels
-- `agent.discovery`: New companies, leads, or candidates.
-- `agent.analysis`: Scoring results or integrity checks.
-- `agent.outreach`: Booking status or email/voice reactions.
-
-### Emitting Events
-```python
-await self.emit("new_company", {"name": "SpaceX", "domain": "spacex.com"})
-```
-
-### Reacting to Events
-1. Declare interest in `__init__`:
-   `self.interested_events = ["new_company"]`
-2. Override `on_event`:
-```python
-async def on_event(self, event_type, data):
-    if event_type == "new_company":
-        # Start work immediately!
-        await self.run_async(company_name=data["name"])
-```
-
-## 📜 Data Contracts
-All events MUST follow the schemas defined in `backend/communication/schemas.py`.
+## 📜 Data Integrity
+With **Pydantic AI**, all agent-to-agent data transfer is strictly validated using Pydantic models. This eliminates the "Hallucination Gap" common in legacy string-based agent communication.
 
 ## 🛠️ Troubleshooting
-- **Redis Connection**: Ensure `REDIS_URL` in `.env` is correct. The bus will log `event_bus_error` if connection is lost.
-- **Non-blocking Callbacks**: Agents handle events in background tasks (`asyncio.create_task`). Ensure shared resources (like DB sessions) handle concurrency safely.
+- **WebSocket Handshake**: If the dashboard shows "Disconnected," verify the JWT contains a valid `tenant_id`.
+- **Redis Connectivity**: The telemetry stream requires an active Redis server on `127.0.0.1:6379`.

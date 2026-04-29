@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { companiesApi, type Company } from "@/lib/api";
-import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -33,7 +32,7 @@ export default function CompaniesPage() {
   );
 
   return (
-    <SidebarLayout>
+    <>
       <div className="space-y-12 pb-20">
         {/* Naturalist Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
@@ -175,6 +174,6 @@ export default function CompaniesPage() {
            </AnimatePresence>
         </div>
       </div>
-    </SidebarLayout>
+    </>
   );
 }

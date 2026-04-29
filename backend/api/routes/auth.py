@@ -116,7 +116,12 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    result = await db.execute(select(User).where(User.id == user_obj_id))
+    try:
+        user_uuid = uuid.UUID(user_obj_id)
+    except ValueError:
+        raise credentials_exception
+
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise credentials_exception
@@ -147,7 +152,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
 
-    token_data = {"sub": str(user.id)}
+    token_data = {"sub": str(user.id), "tenant_id": str(user.tenant_id)}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
     
@@ -155,6 +160,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id),
         "email": user.email,
         "full_name": user.full_name,
         "role": user.role.value,
@@ -187,7 +193,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     user.last_login = datetime.utcnow()
     await db.commit()
 
-    token_data = {"sub": str(user.id)}
+    token_data = {"sub": str(user.id), "tenant_id": str(user.tenant_id)}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
     
@@ -195,6 +201,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id),
         "email": user.email,
         "full_name": user.full_name,
         "role": user.role.value,
@@ -221,12 +228,17 @@ async def refresh_token_route(refresh_token: str, db: AsyncSession = Depends(get
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    result = await db.execute(select(User).where(User.id == user_id_val))
+    try:
+        user_uuid = uuid.UUID(user_id_val)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    token_data = {"sub": str(user.id)}
+    token_data = {"sub": str(user.id), "tenant_id": str(user.tenant_id)}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
     

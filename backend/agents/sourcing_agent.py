@@ -147,14 +147,36 @@ class SourcingAgent(BaseAgent):
         
         Profiles: {json.dumps(analysis_input)}
         
-        Return JSON with: match_score, integrity_score, and ai_reasoning.
+        Return JSON with:
+        "candidates": [
+            {{
+                "first_name": "...",
+                "match_score": int (0-100),
+                "integrity_score": int (0-100),
+                "ai_reasoning": {{
+                    "strengths": ["list"],
+                    "weaknesses": ["list"],
+                    "alignment": "short explanation"
+                }},
+                "integrity_reasoning": {{
+                    "risk_factors": ["list"],
+                    "verdict": "explanation"
+                }}
+            }}
+        ]
         """
         
         try:
             response = await self.chat_async(SYSTEM_PROMPT, prompt, json_mode=True, complexity="complex")
             results = json.loads(response).get("candidates", [])
             
-            # Map results back... (rest of the logic)
+            # Ensure reasoning fields exist for all
+            for cand in results:
+                if "ai_reasoning" not in cand:
+                    cand["ai_reasoning"] = {"strengths": [], "weaknesses": [], "alignment": "N/A"}
+                if "integrity_reasoning" not in cand:
+                    cand["integrity_reasoning"] = {"risk_factors": [], "verdict": "N/A"}
+
             return results
         except Exception as e:
             self.log.error("analysis_failed", error=str(e))

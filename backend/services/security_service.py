@@ -2,6 +2,8 @@
 DVT Talent AI — Security & Compliance Utilities
 Handles PII encryption and structured audit logging.
 """
+import base64
+import hashlib
 from cryptography.fernet import Fernet
 from config import settings
 from db.models import AuditLog, AsyncSessionLocal
@@ -10,8 +12,12 @@ import structlog
 
 log = structlog.get_logger()
 
-# Shared encryption key from environment
-CIPHER = Fernet(settings.secret_key[:32].encode().ljust(32, b'0')) if settings.secret_key else None
+# Derive a valid 32-byte Fernet key from the secret_key
+def get_fernet_key(secret: str) -> bytes:
+    key = hashlib.sha256(secret.encode()).digest()
+    return base64.urlsafe_b64encode(key)
+
+CIPHER = Fernet(get_fernet_key(settings.secret_key)) if settings.secret_key else None
 
 def encrypt_pii(text: str) -> str:
     """Encrypt sensitive data like emails and phone numbers"""

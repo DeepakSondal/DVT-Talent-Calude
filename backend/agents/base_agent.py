@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, Optional, List
 import structlog
+import sentry_sdk
 from openai import OpenAI, AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -68,6 +69,7 @@ class BaseAgent(ABC, CommunicationMixin):
             self._async_llm_client = AsyncOpenAI(api_key=settings.primary_llm_api_key, base_url=settings.primary_llm_base_url)
         return self._async_llm_client
 
+    @sentry_sdk.trace
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     def chat(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """Synchronous chat for Celery workers"""
@@ -78,6 +80,7 @@ class BaseAgent(ABC, CommunicationMixin):
         )
         return response.choices[0].message.content
 
+    @sentry_sdk.trace
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def chat_async(
         self,
@@ -89,10 +92,12 @@ class BaseAgent(ABC, CommunicationMixin):
         complexity: str = "simple",
         image_url: Optional[str] = None
     ) -> str:
-        # [LEAN-SAAS] Router Logic
-        model = settings.deepseek_model if hasattr(settings, 'deepseek_model') else settings.primary_llm_model 
+        # [VELOCITY-HACK]: Prioritize Groq for simple tasks (Fastest inference)
+        model = settings.groq_model if hasattr(settings, 'groq_model') and settings.groq_api_key else settings.primary_llm_model
         if image_url or complexity == "complex":
             model = "gpt-4o"
+        elif complexity == "simple" and hasattr(settings, 'deepseek_model'):
+            model = settings.deepseek_model
             
         messages = [{"role": "system", "content": system_prompt}]
         user_content = [{"type": "text", "text": user_prompt}]

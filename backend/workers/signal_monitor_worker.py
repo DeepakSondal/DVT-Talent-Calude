@@ -9,7 +9,7 @@ import structlog
 from typing import List, Dict, Any
 
 from config import settings
-from agents.market_intelligence_agent import MarketIntelligenceAgent
+from agents.market_iq_agent import MarketIntelligenceAgent
 
 log = structlog.get_logger()
 

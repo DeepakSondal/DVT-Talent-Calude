@@ -17,6 +17,7 @@ class TenantUpdate(BaseModel):
     logo_url: str | None = None
     industry: str | None = None
     address: str | None = None
+    onboarded: bool | None = None
 
 @router.get("/me", response_model=None)
 async def get_my_tenant(
@@ -65,3 +66,22 @@ async def get_team_members(
     query = select(User).filter(User.tenant_id == current_user.tenant_id)
     result = await db.execute(query)
     return result.scalars().all()
+@router.post("/complete-onboarding")
+async def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """ Mark the current tenant as onboarded (First Run Wizard complete) """
+    if current_user.role not in ["admin"]:
+         raise HTTPException(status_code=403, detail="Insufficient permissions")
+         
+    query = select(Tenant).filter(Tenant.id == current_user.tenant_id)
+    result = await db.execute(query)
+    tenant = result.scalar_one_or_none()
+    
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+        
+    tenant.onboarded = True
+    await db.commit()
+    return {"status": "success", "message": "Onboarding complete"}

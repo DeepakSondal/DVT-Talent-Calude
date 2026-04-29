@@ -1,0 +1,70 @@
+{
+  "__inputs": [{"name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource", "pluginId": "prometheus"}],
+  "__requires": [{"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"}],
+  "id": null,
+  "uid": "dvt-main-dashboard",
+  "title": "DVT Talent AI — Operations",
+  "tags": ["dvt", "ai", "recruiting"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "API Request Rate (req/s)", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "req/s", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 50}, {"color": "red", "value": 200}]}}}
+    },
+    {
+      "id": 2, "type": "stat", "title": "Error Rate (%)", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "100 * sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))", "legendFormat": "Error %", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"},
+      "fieldConfig": {"defaults": {"unit": "percent", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}}
+    },
+    {
+      "id": 3, "type": "stat", "title": "P99 Latency (s)", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P99", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"},
+      "fieldConfig": {"defaults": {"unit": "s", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}}
+    },
+    {
+      "id": 4, "type": "stat", "title": "Uptime", "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "up{job=\"dvt-api\"}", "legendFormat": "API Up", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "ONLINE", "color": "green"}}}]},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}}}
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Request Rate by Endpoint", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "sum(rate(http_requests_total[2m])) by (handler)", "legendFormat": "{{handler}}", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}],
+      "options": {"tooltip": {"mode": "multi"}},
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "API Latency Percentiles", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P50", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P95", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P99", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Agent Task Success vs Failure", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {"expr": "sum(rate(agent_tasks_total{status=\"completed\"}[5m]))", "legendFormat": "Success", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "sum(rate(agent_tasks_total{status=\"failed\"}[5m]))", "legendFormat": "Failed", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars"}}, "overrides": [{"matcher": {"id": "byName", "options": "Failed"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]}]}
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "DB & Redis Connection Pool Usage", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "sqlalchemy_pool_checkedout_connections", "legendFormat": "DB Connections (active)", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "redis_connected_clients", "legendFormat": "Redis Clients", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    }
+  ],
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {}
+}

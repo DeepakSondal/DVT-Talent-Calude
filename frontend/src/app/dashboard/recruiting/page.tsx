@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { candidatesApi, type Candidate } from "@/lib/api";
-import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -50,7 +49,7 @@ export default function RecruitingPage() {
   };
 
   return (
-    <SidebarLayout>
+    <>
       <div className="space-y-12 pb-20">
         {/* Naturalist Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
@@ -248,6 +247,6 @@ export default function RecruitingPage() {
            </div>
         </div>
       </div>
-    </SidebarLayout>
+    </>
   );
 }

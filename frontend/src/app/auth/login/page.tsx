@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 
 import { Suspense } from "react";
 
@@ -33,14 +32,14 @@ function LoginContent() {
     try {
       await authApi.login({ email, password });
       toast.success("Identity Verified", {
-        description: "Welcome back to your Intelligence Command.",
-        icon: <Shield className="w-4 h-4 text-primary" />
+        description: "Welcome back to DVT Talent.",
+        icon: <Shield className="w-4 h-4 text-indigo-600" />
       });
       router.push(from);
     } catch (err: any) {
       const msg = err.response?.data?.detail || "Invalid credentials provided.";
       toast.error("Verification Failed", {
-         description: typeof msg === 'string' ? msg : "Please check your access key.",
+         description: typeof msg === 'string' ? msg : "Please check your credentials.",
       });
     } finally {
       setIsLoading(false);
@@ -48,71 +47,67 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-primary/20">
-      {/* Naturalist Background Decor */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-60" />
-      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-secondary/20 rounded-full blur-[120px]" />
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans selection:bg-indigo-500/20 text-slate-900">
+      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-100/50 rounded-full blur-[120px]" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-100/50 rounded-full blur-[120px]" />
 
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[480px] relative z-10"
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-[440px] relative z-10"
       >
-        <Card className="bg-white/80 backdrop-blur-xl border-border/50 shadow-[0_40px_80px_-20px_rgba(132,169,140,0.12)] p-12 space-y-10">
-          {/* Naturalist Header */}
-          <div className="text-center space-y-4">
-             <div className="w-16 h-16 rounded-3xl bg-primary flex items-center justify-center mx-auto shadow-xl shadow-primary/20 mb-8 transition-transform hover:scale-105 active:scale-95 cursor-pointer">
-                <Bot className="w-8 h-8 text-white" />
+        <Card className="bg-white border-slate-200 shadow-2xl shadow-indigo-600/5 p-10 space-y-8 rounded-2xl">
+          <div className="text-center space-y-3">
+             <div className="w-14 h-14 rounded-2xl bg-indigo-60 flex items-center justify-center mx-auto bg-indigo-50 border border-indigo-100 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">D</div>
              </div>
-             <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase italic leading-none">DVT Talent</h1>
-             <p className="text-muted-foreground font-black text-[10px] tracking-[0.4em] uppercase opacity-60">Identity Bridge / Access</p>
+             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome to DVT Talent</h1>
+             <p className="text-sm font-medium text-slate-500">Log in to your enterprise recruiting dashboard</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-8">
-            <div className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-4">
               <Input
-                label="Registered Email"
+                label="Email"
                 type="email"
-                placeholder="operator@dvttalent.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 h-14 font-black text-[11px] tracking-widest placeholder:lowercase placeholder:tracking-normal"
+                className="bg-slate-50 border-slate-200 focus:bg-white focus:border-indigo-500 h-12 text-sm"
               />
               <div className="space-y-2">
                 <Input
-                  label="Private Access Key"
+                  label="Password"
                   type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 h-14 font-black text-xs tracking-widest"
+                  className="bg-slate-50 border-slate-200 focus:bg-white focus:border-indigo-500 h-12 text-sm"
                 />
-                <div className="flex justify-end px-1">
-                   <Link href="#" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Forgot Key?</Link>
+                <div className="flex justify-end">
+                   <Link href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">Forgot password?</Link>
                 </div>
               </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full h-16 text-xs font-black uppercase tracking-[0.3em] shadow-xl shadow-primary/10 active:scale-95 transition-all"
+              className="w-full h-12 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 transition-all border-0"
               isLoading={isLoading}
             >
-              Initialize Node
-              <ArrowRight className="ml-2 w-4 h-4" />
+              Sign In
             </Button>
           </form>
 
-          <div className="relative pt-6">
-             <div className="absolute inset-0 flex items-center px-8">
-                <div className="w-full border-t border-border/50" />
+          <div className="relative pt-4">
+             <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
              </div>
-             <div className="relative flex justify-center">
-                <span className="bg-white px-4 text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.5em]">External Protocols</span>
+             <div className="relative flex justify-center text-xs">
+                <span className="bg-white px-2 text-slate-500 font-medium">Or continue with</span>
              </div>
           </div>
 
@@ -122,50 +117,20 @@ function LoginContent() {
                   key={i} 
                   type="button"
                   onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login/${i === 0 ? 'google' : 'linkedin'}`}
-                  className="flex-1 h-14 rounded-2xl bg-secondary/10 border border-transparent hover:bg-white hover:border-primary/20 hover:shadow-lg transition-all flex items-center justify-center gap-3 group px-4"
+                  className="flex-1 h-12 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-2"
                 >
-                   <Icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover:text-foreground">
+                   <Icon className="w-4 h-4 text-slate-600" />
+                   <span className="text-sm font-medium text-slate-700">
                       {i === 0 ? "Google" : "LinkedIn"}
                    </span>
                 </button>
              ))}
           </div>
-
-          <div className="pt-2">
-            <button 
-              type="button"
-              onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/sso/login`}
-              className="w-full h-14 rounded-2xl bg-primary/10 border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-3 group"
-            >
-               <Key className="w-4 h-4 text-primary group-hover:text-white transition-colors" />
-               <span className="text-[10px] font-black uppercase tracking-widest">
-                  Enterprise SSO (Okta / Azure)
-               </span>
-            </button>
-          </div>
           
-          <p className="text-center text-[10px] text-muted-foreground pt-4 font-black uppercase tracking-widest">
-            New operator? <Link href="/auth/register" className="text-primary hover:underline underline-offset-4">Request Deployment</Link>
+          <p className="text-center text-sm font-medium text-slate-500 pt-2">
+            Don't have an account? <Link href="/auth/register" className="text-indigo-600 font-semibold hover:text-indigo-700">Sign up</Link>
           </p>
         </Card>
-
-        {/* Technical Health Info */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-12 flex items-center justify-between px-6"
-        >
-           <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.3em]">Neural Bridge Ready</span>
-           </div>
-           <div className="flex items-center gap-2">
-              <Shield className="w-3 h-3 text-muted-foreground/40" />
-              <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.3em]">SECURE LINK v2.0</span>
-           </div>
-        </motion.div>
       </motion.div>
     </div>
   );
@@ -174,8 +139,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     }>
       <LoginContent />

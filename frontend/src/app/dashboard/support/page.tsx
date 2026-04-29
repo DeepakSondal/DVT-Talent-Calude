@@ -6,7 +6,6 @@ import {
   ExternalLink, Zap, Shield, Search, Sparkles,
   LifeBuoy, ChevronRight, ArrowRight
 } from "lucide-react";
-import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -14,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 export default function SupportPage() {
   return (
-    <SidebarLayout>
+    <>
       <div className="space-y-16 pb-24 max-w-6xl mx-auto">
         {/* Naturalist Header */}
         <div className="text-center space-y-6">
@@ -92,6 +91,6 @@ export default function SupportPage() {
            </div>
         </Card>
       </div>
-    </SidebarLayout>
+    </>
   );
 }

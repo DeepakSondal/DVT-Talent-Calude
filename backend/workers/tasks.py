@@ -12,24 +12,29 @@ from datetime import datetime
 import redis
 from sqlalchemy import create_engine, text
 from workers.celery_app import celery_app
-from config import settings
-from agents.orchestrator import AgentOrchestrator
-from agents.discovery_agent import DiscoveryAgent
-from agents.sourcing_agent import SourcingAgent
-from agents.outreach_agent import OutreachAgent
-from agents.analytics_agent import AnalyticsAgent
-from agents.screening_agent import ScreeningAgent
+from backend.config import settings
+from backend.agents.orchestrator import AgentOrchestrator
+from backend.agents.pydantic_config import AgentDeps
+from backend.agents.discovery_pydantic import discovery_agent
+from backend.agents.sourcing_pydantic import sourcing_agent
+from backend.agents.outreach_pydantic import outreach_agent
+from backend.agents.analytics_pydantic import analytics_agent
+from backend.agents.screening_pydantic import screening_agent
+from backend.agents.market_iq_pydantic import market_iq_agent
 
 log = structlog.get_logger(__name__)
 
-def broadcast_signal(message: str, signal_type: str = "agent_info"):
+def broadcast_signal(message: str, signal_type: str = "agent_info", tenant_id: str = "default"):
     """Publish a signal to Redis for the WebSocket relay to pick up"""
     try:
         r = redis.from_url(settings.redis_url)
-        r.publish("dvt_signals", json.dumps({
+        # Publish to tenant-specific channel so WebSocket relay can route it
+        channel = f"dvt_signals:{tenant_id}"
+        r.publish(channel, json.dumps({
             "type": signal_type,
             "message": message,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "tenant_id": tenant_id
         }))
     except Exception as e:
         log.error("broadcast_failed", error=str(e))
@@ -37,30 +42,38 @@ def broadcast_signal(message: str, signal_type: str = "agent_info"):
 # ── Unified Runner ──────────────────────────────────────────────────────────
 
 @celery_app.task(bind=True, name="workers.tasks.run_agent_task", max_retries=3)
-def run_agent_task(self, agent_name: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+def run_agent_task(self, agent_name: str, params: Dict[str, Any] = None, tenant_id: str = "default") -> Dict[str, Any]:
     """Run any single agent by name (Discovery, Sourcing, Outreach, Analytics, Screening)"""
-    log.info("celery_task_started", task="run_agent_task", agent=agent_name)
+    log.info("celery_task_started", task="run_agent_task", agent=agent_name, tenant_id=tenant_id)
     try:
-        broadcast_signal(f"Agent '{agent_name}' initiated...", "agent_start")
+        broadcast_signal(f"Agent '{agent_name}' initiated sequence...", "agent_start", tenant_id=tenant_id)
         
         agents_map = {
-            "discovery": DiscoveryAgent,
-            "sourcing": SourcingAgent,
-            "outreach": OutreachAgent,
-            "analytics": AnalyticsAgent,
-            "screening": ScreeningAgent
+            "discovery": discovery_agent,
+            "sourcing": sourcing_agent,
+            "outreach": outreach_agent,
+            "analytics": analytics_agent,
+            "screening": screening_agent,
+            "market_iq": market_iq_agent
         }
         
         if agent_name not in agents_map:
             raise ValueError(f"Unknown agent: {agent_name}")
             
-        agent = agents_map[agent_name]()
-        if hasattr(agent, "run_async"):
-            result = asyncio.run(agent.run_async(**(params or {})))
-        else:
-            result = agent.run(**(params or {}))
+        agent = agents_map[agent_name]
+        
+        # Use httpx client for agent deps
+        async def _run():
+            async with httpx.AsyncClient() as client:
+                deps = AgentDeps(http_client=client, tenant_id=tenant_id)
+                # Run the Pydantic AI agent
+                result = await agent.run(f"Process task with params: {json.dumps(params)}", deps=deps)
+                return result.data.model_dump()
+
+        import httpx
+        result = asyncio.run(_run())
             
-        broadcast_signal(f"Agent '{agent_name}' completed successfully.", "agent_success")
+        broadcast_signal(f"Agent '{agent_name}' completed sequence.", "agent_success", tenant_id=tenant_id)
         log.info("celery_task_completed", task="run_agent_task", agent=agent_name)
         return result
     except Exception as exc:
@@ -74,11 +87,13 @@ def run_full_autonomous_pipeline(
     location: str = "United States",
     send_emails: bool = False,
     mock_mode: bool = False,
+    tenant_id: str = "default",
 ) -> Dict[str, Any]:
     """Run the complete end-to-end 5-agent pipeline"""
-    log.info("celery_task_started", task="full_pipeline", industry=industry, mock=mock_mode)
+    log.info("celery_task_started", task="full_pipeline", industry=industry, tenant_id=tenant_id)
     try:
-        orchestrator = AgentOrchestrator()
+        orchestrator = AgentOrchestrator(tenant_id=tenant_id)
+        broadcast_signal(f"Initiating full swarm for {industry} in {location}...", "swarm_start", tenant_id=tenant_id)
         result = asyncio.run(orchestrator.run_full_pipeline(
             industry=industry,
             location=location,
@@ -150,8 +165,9 @@ def score_candidate_task(self, candidate_id: str, job_id: Optional[str] = None) 
         
         with engine.connect() as conn:
             conn.execute(
-                text("UPDATE candidates SET score = :score, ai_summary = :summary WHERE id = :cid"),
+                text("UPDATE candidates SET score = :score, title = :title, ai_summary = :summary WHERE id = :cid"),
                 {"score": result.get("candidates", [{}])[0].get("score", 0), 
+                 "title": jd_text,
                  "summary": result.get("candidates", [{}])[0].get("analysis", ""), 
                  "cid": candidate_id}
             )

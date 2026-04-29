@@ -4,13 +4,14 @@
  */
 import axios, { AxiosInstance, AxiosError } from "axios";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE,
   timeout: 30000,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 // Request interceptor: attach JWT
@@ -85,7 +86,17 @@ export interface Candidate {
   phone?: string; title?: string; location?: string;
   linkedin_url?: string; github_url?: string; skills?: string[];
   experience_years?: number; current_company?: string; status: string;
-  source?: string; score: number; ai_summary?: string; created_at: string;
+  source?: string; score: number; ai_summary?: string; 
+  scoring_reasoning?: {
+    strengths: string[];
+    weaknesses: string[];
+    alignment: string;
+  };
+  integrity_reasoning?: {
+    risk_factors: string[];
+    verdict: string;
+  };
+  created_at: string;
   meta_data?: any;
 }
 
@@ -206,6 +217,7 @@ export const candidatesApi = {
       headers: { "Content-Type": "multipart/form-data" },
     }).then((r) => r.data);
   },
+  export: () => api.get("/candidates/export", { responseType: "blob" }),
 };
 
 // ── Leads API ──────────────────────────────────────────────────────────────
@@ -252,6 +264,7 @@ export const tenantsApi = {
   getMe: () => api.get("/tenants/me").then((r) => r.data),
   updateMe: (data: any) => api.patch("/tenants/me", data).then((r) => r.data),
   getTeam: () => api.get("/tenants/team").then((r) => r.data),
+  completeOnboarding: () => api.post("/tenants/complete-onboarding").then((r) => r.data),
 };
 export const monitoringApi = {
   getRecentSignals: (limit: number = 50): Promise<any[]> =>
@@ -262,10 +275,11 @@ export const monitoringApi = {
 // ── Agents API ────────────────────────────────────────────────────────────
 export const agentsApi = {
   trigger: (agent: string, params: any = {}) => api.post("/agents/trigger", { agent, params }).then((r) => r.data),
-  runSwarm: (config: { industry: string; location: string; send_emails: boolean; mock_mode?: boolean }) =>
+  runSwarm: (config: { industry: string; location: string; mock_mode?: boolean }) =>
     api.post("/agents/swarm/run", config).then((r) => r.data),
-  listTasks: (limit: number = 50): Promise<{ tasks: AgentTask[] }> =>
-    api.get("/agents/tasks", { params: { limit } }).then((r) => r.data),
+  runPhase: (phase: string, mode: string, params: any) =>
+    api.post("/agents/swarm/phase", params, { params: { phase, mode } }).then((r) => r.data),
+  listTasks: (limit: number = 50) => api.get("/agents/tasks", { params: { limit } }).then((r) => r.data),
   getStatus: (taskId: string) => api.get(`/agents/status/${taskId}`).then((r) => r.data),
 };
 
@@ -279,6 +293,49 @@ export const copilotApi = {
     
   startOutreach: (data: { task_id: string; approved_candidates: any[]; job_context: any; tenant_id: string }) => 
     api.post("/copilot/outreach", data).then((r) => r.data),
+};
+
+// ── Integrations API ──────────────────────────────────────────────────────
+export const integrationsApi = {
+  listConnections: () => api.get("/integrations").then((r) => r.data),
+  connect: (provider: string, data: any) => api.post(`/integrations/${provider}`, data).then((r) => r.data),
+  disconnect: (provider: string) => api.delete(`/integrations/${provider}`).then((r) => r.data),
+  syncJobs: (provider: string) => api.post(`/integrations/${provider}/sync`).then((r) => r.data),
+};
+
+// ── Email Sender API ──────────────────────────────────────────────────────
+export interface EmailSenderConfig {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_password: string;
+  sender_name: string;
+  sender_email: string;
+}
+
+export interface EmailSenderOut {
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_user: string | null;
+  smtp_password_hint: string | null;
+  sender_name: string | null;
+  sender_email: string | null;
+  sender_verified: boolean;
+  configured: boolean;
+}
+
+export const emailSenderApi = {
+  getConfig: (): Promise<EmailSenderOut> =>
+    api.get("/email-sender").then((r) => r.data),
+
+  saveConfig: (data: EmailSenderConfig): Promise<{ status: string; message: string; sender_verified: boolean }> =>
+    api.post("/email-sender", data).then((r) => r.data),
+
+  testConnection: (): Promise<{ status: string; message: string }> =>
+    api.post("/email-sender/test").then((r) => r.data),
+
+  deleteConfig: (): Promise<{ status: string }> =>
+    api.delete("/email-sender").then((r) => r.data),
 };
 
 export default api;

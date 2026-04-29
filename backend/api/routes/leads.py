@@ -105,6 +105,29 @@ async def create_lead(data: LeadCreate, db: AsyncSession = Depends(get_db), curr
     return LeadOut.model_validate(lead)
 
 
+@router.get("/pipeline")
+async def get_pipeline_leads(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get all leads grouped by status for the Kanban board"""
+    from sqlalchemy.orm import selectinload
+    query = select(Lead).options(selectinload(Lead.company)).where(Lead.owner_id == current_user.id)
+    result = await db.execute(query)
+    leads = result.scalars().all()
+    
+    # Grouping logic
+    pipeline = {status: [] for status in LeadStatus}
+    for lead in leads:
+        out = LeadOut.model_validate(lead)
+        if lead.company:
+            out.company_name = lead.company.name
+            out.domain = lead.company.domain
+        pipeline[lead.status].append(out)
+        
+    return pipeline
+
+
 @router.get("/{lead_id}")
 async def get_lead(lead_id: UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     from sqlalchemy.orm import selectinload
@@ -137,29 +160,6 @@ async def update_lead(lead_id: UUID, data: LeadUpdate, db: AsyncSession = Depend
     await db.commit()
     await db.refresh(lead)
     return LeadOut.model_validate(lead)
-
-
-@router.get("/pipeline")
-async def get_pipeline_leads(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get all leads grouped by status for the Kanban board"""
-    from sqlalchemy.orm import selectinload
-    query = select(Lead).options(selectinload(Lead.company)).where(Lead.owner_id == current_user.id)
-    result = await db.execute(query)
-    leads = result.scalars().all()
-    
-    # Grouping logic
-    pipeline = {status: [] for status in LeadStatus}
-    for lead in leads:
-        out = LeadOut.model_validate(lead)
-        if lead.company:
-            out.company_name = lead.company.name
-            out.domain = lead.company.domain
-        pipeline[lead.status].append(out)
-        
-    return pipeline
 
 
 @router.delete("/{lead_id}", status_code=204)

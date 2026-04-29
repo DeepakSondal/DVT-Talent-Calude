@@ -35,13 +35,26 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                 user_id = user.id if user else None
                 tenant_id = getattr(user, "tenant_id", None) if user else None
                 
-                # 4. Save Audit Log
+                # 4. Determine Severity & Status
+                status = "SUCCESS" if response.status_code < 400 else "FAILURE"
+                severity = "INFO"
+                
+                if response.status_code >= 500:
+                    severity = "CRITICAL"
+                elif response.status_code in [401, 403]:
+                    severity = "WARNING"
+                elif is_mutation and status == "FAILURE":
+                    severity = "WARNING"
+
+                # 5. Save Audit Log
                 async with AsyncSessionLocal() as session:
                     audit_entry = AuditLog(
                         tenant_id=tenant_id,
                         user_id=user_id,
                         action=f"{method} {path}",
                         entity_type=path.split("/")[1] if len(path.split("/")) > 1 else "root",
+                        severity=severity,
+                        status=status,
                         ip_address=request.client.host if request.client else "unknown",
                         user_agent=request.headers.get("user-agent", "unknown"),
                         meta_data={

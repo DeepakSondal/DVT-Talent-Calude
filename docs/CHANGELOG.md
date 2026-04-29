@@ -2,6 +2,32 @@
 
 All notable changes to the DVT Talent AI recruitment swarm will be documented in this file.
 
+## [1.1.0] — 2026-04-29
+### Hardening: Pydantic AI & Native Swarm Orchestration
+
+This release focuses on platform stability, modernized agent architecture, and "last mile" fixes for the Elite Pilot Workspace.
+
+### 🚀 Swarm Modernization
+- **Pydantic AI Migration**: Successfully migrated the core 7-agent roster (Discovery, Sourcing, Outreach, Analytics, Screening, Market IQ, Critic) to the Pydantic AI framework for enhanced type-safety and structured data handling.
+- **Native Task Orchestration**: Transitioned the Full Swarm protocol from Celery to native **FastAPI BackgroundTasks**. This eliminates Redis/Celery overhead for pilot demonstrations and ensures instant execution.
+- **Agent Resilience**: Implemented automated error handling and graceful fallbacks for agent tools and LLM providers.
+
+### 🛡️ Database & Auth Hardening
+- **Schema Repair**: Resolved `UNIQUE constraint` conflicts in the `Candidate` model, enabling multi-tenant lead scaling.
+- **Identity Synthesis**: Enhanced the JWT payload with `tenant_id` to ensure secure WebSocket telemetry routing.
+- **Audit Logging**: Verified system-wide audit logging for all agent-driven mutations.
+
+### 🌐 Connectivity & UI
+- **IPv4 Stability Standard**: Standardized all internal and external communication to use explicit IPv4 (`127.0.0.1`) to resolve Windows-specific `localhost` resolution issues.
+- **Telemetry Stream Fix**: Repaired the WebSocket handshake protocol to ensure the "Neural Log" stream correctly displays real-time agent activity.
+- **Talent Grid Export**: Fixed route shadowing issues to enable high-fidelity CSV exports of candidate dossiers.
+
+### 🛠️ Developer Experience
+- **Consolidated Documentation**: Updated `ARCHITECTURE.md` and `SETUP.md` to reflect the new leaner infrastructure.
+- **Simplified Setup**: Removed mandatory Celery dependency for local swarm testing, reducing dev-env complexity.
+
+---
+
 ## [1.0.0] — 2026-04-10
 ### Initial Release: The Autonomous Swarm
 

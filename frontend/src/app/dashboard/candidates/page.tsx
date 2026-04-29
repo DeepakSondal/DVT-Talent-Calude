@@ -1,323 +1,278 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Users, Search, Briefcase, 
-  ChevronRight, Zap, Loader2, Plus, Filter,
-  ArrowRight, Download, Share2, Star, 
-  MapPin, DollarSign, UserCheck, Mail,
-  ExternalLink, MoreVertical, Trash2,
-  CheckCircle2, Square, CheckSquare,
-  Sparkles, HeartPulse, ShieldCheck, Globe, Target
+    Search, Filter, Plus, MoreHorizontal, 
+    CheckSquare, Square, Mail, Trash2, 
+    ArrowUpRight, Loader2, Linkedin, Github, 
+    Globe, Briefcase, Sparkles, ShieldCheck,
+    Zap, Activity, Download, Users
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { candidatesApi, type Candidate } from "@/lib/api";
-import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
-import { useDebounce } from "use-debounce";
+import { candidatesApi } from "@/lib/api";
+import { Candidate } from "@/lib/api";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function CandidatesPage() {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch] = useDebounce(search, 300);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedNode, setSelectedNode] = useState<Candidate | null>(null);
+    const [candidates, setCandidates] = useState<Candidate[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [search, setSearch] = useState("");
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["candidates", debouncedSearch],
-    queryFn: () => candidatesApi.list({ search: debouncedSearch || undefined }),
-    placeholderData: (previousData: any) => previousData,
-  });
+    const fetchCandidates = async () => {
+        setIsLoading(true);
+        try {
+            const data = await candidatesApi.list({ search });
+            setCandidates(data.items);
+        } catch (error) {
+            toast.error("Failed to fetch talent nodes");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-  const candidates = data?.items || [];
+    useEffect(() => {
+        const timer = setTimeout(() => fetchCandidates(), 300);
+        return () => clearTimeout(timer);
+    }, [search]);
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
 
-  const toggleSelectAll = () => {
-    setSelectedIds(selectedIds.length === candidates.length && candidates.length > 0 ? [] : candidates.map((c: Candidate) => c.id));
-  };
+    const toggleSelectAll = () => {
+        if (selectedIds.length === candidates.length) setSelectedIds([]);
+        else setSelectedIds(candidates.map(c => c.id));
+    };
 
-  return (
-    <SidebarLayout>
-      <div className="space-y-12 pb-20">
-        {/* Naturalist Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-           <div className="space-y-3">
-              <Badge variant="primary" className="py-1 px-4 text-[9px] font-black border-primary/20 bg-primary/5">
-                 <ShieldCheck className="w-3 h-3 mr-2 inline" />
-                 Talent Integrity Verified
-              </Badge>
-              <h1 className="text-4xl lg:text-6xl font-black tracking-tighter text-foreground leading-none">
-                 Talent <span className="text-primary italic">Synthesis</span>
-              </h1>
-              <p className="text-muted-foreground font-bold text-lg max-w-xl">
-                 De-biased, high-precision talent discovery powered by autonomous agents.
-              </p>
-           </div>
-           <div className="flex items-center gap-4">
-              <Button variant="outline" className="gap-2 h-12 px-6 bg-white shadow-sm">
-                 <Download className="w-4 h-4" />
-                 Export Nodes
-              </Button>
-              <Button variant="primary" className="gap-2 h-12 px-8 shadow-primary/20">
-                 <Plus className="w-5 h-5" />
-                 Add Node
-              </Button>
-           </div>
-        </div>
+    const handleExport = async () => {
+        try {
+            const response = await candidatesApi.export();
+            const blob = new Blob([response.data], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Talent_Synthesis_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            toast.success("Executive Export Successful", { description: "Synthesis report downloaded." });
+        } catch {
+            toast.error("Export failed");
+        }
+    };
 
-        {/* Filter & Command Bar */}
-        <Card className="p-6 bg-white/80 backdrop-blur-xl border-border/50">
-           <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
-              <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
-                 <div className="relative flex-1 max-w-lg">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
-                    <input 
-                      type="text" 
-                      placeholder="Search talent profiles, skills, or roles..." 
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="w-full bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 rounded-2xl py-3.5 pl-12 pr-4 text-[11px] font-black uppercase tracking-widest text-foreground placeholder:text-muted-foreground/40 placeholder:lowercase placeholder:tracking-normal transition-all"
-                    />
-                 </div>
-                 <Button variant="secondary" size="icon" className="shrink-0 w-12 h-12 rounded-2xl bg-primary/5 hover:bg-primary/10">
-                    <Filter className="w-4 h-4 text-primary" />
-                 </Button>
-              </div>
-              
-              <AnimatePresence>
-                {selectedIds.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="flex items-center gap-6"
-                  >
-                     <span className="text-[10px] font-black text-primary uppercase tracking-widest">{selectedIds.length} Nodes Selected</span>
-                     <div className="h-6 w-px bg-border/50" />
-                     <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" className="h-9 px-4 text-rose-500 hover:bg-rose-500/5">
-                           <Trash2 className="w-4 h-4 mr-2" />
-                           Purge
-                        </Button>
-                        <Button variant="secondary" size="sm" className="h-9 px-4">
-                           <Mail className="w-4 h-4 mr-2" />
-                           Signal
-                        </Button>
-                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-           </div>
-        </Card>
-
-        {/* Talent Grid / Table */}
-        <Card className="overflow-hidden border-border/50 shadow-xl shadow-primary/5 bg-white/60">
-           <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                 <thead>
-                    <tr className="bg-secondary/10 border-b border-border/20">
-                       <th className="p-6 w-12">
-                          <button onClick={toggleSelectAll} className="text-primary/40 hover:text-primary transition-colors">
-                             {selectedIds.length === candidates.length && candidates.length > 0 ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
-                          </button>
-                       </th>
-                       <th className="p-6 text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Synthesis Profile</th>
-                       <th className="p-6 text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Current Alignment</th>
-                       <th className="p-6 text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">State</th>
-                       <th className="p-6 text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Heat Score</th>
-                       <th className="p-6 text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Discovery Date</th>
-                       <th className="p-6 w-12 text-center text-[10px] font-black uppercase text-white/20 tracking-widest"></th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-border/20 relative">
-                    {isLoading && (
-                      <tr className="bg-white/80 backdrop-blur-sm">
-                        <td colSpan={7} className="py-32 text-center">
-                           <div className="flex flex-col items-center gap-4">
-                              <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Synthesizing talent nodes...</p>
-                           </div>
-                        </td>
-                      </tr>
-                    )}
-
-                    <AnimatePresence mode="popLayout">
-                      {!isLoading && candidates.map((can: Candidate, i: number) => (
-                        <motion.tr 
-                          key={can.id} 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          onClick={() => setSelectedNode(can)}
-                          className={cn(
-                            "group hover:bg-white transition-colors cursor-pointer",
-                            selectedIds.includes(can.id) && "bg-primary/5"
-                          )}
-                        >
-                           <td className="p-6">
-                              <button onClick={() => toggleSelect(can.id)} className={cn("transition-colors", selectedIds.includes(can.id) ? "text-primary" : "text-primary/10 group-hover:text-primary/30")}>
-                                 {selectedIds.includes(can.id) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
-                              </button>
-                           </td>
-                           <td className="p-6">
-                              <div className="flex items-center gap-5">
-                                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary shadow-sm group-hover:bg-primary group-hover:text-white transition-all duration-500">
-                                    {can.first_name[0]}{can.last_name[0]}
-                                 </div>
-                                 <div className="space-y-1">
-                                    <div className="text-sm font-black text-foreground">{can.first_name} {can.last_name}</div>
-                                    <div className="text-[9px] text-muted-foreground font-black uppercase tracking-widest flex items-center gap-2">
-                                       <Globe className="w-3 h-3" />
-                                       {can.location || "Global Node"}
-                                    </div>
-                                 </div>
-                              </div>
-                           </td>
-                           <td className="p-6">
-                              <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                 <Briefcase className="w-3.5 h-3.5 text-primary/40" />
-                                 {can.title || "Undisclosed Alignment"}
-                              </div>
-                           </td>
-                           <td className="p-6">
-                              <Badge variant={can.status === "Interviewing" ? "primary" : can.status === "Placed" ? "success" : "secondary"} className="h-7 px-4">
-                                 {can.status}
-                              </Badge>
-                           </td>
-                           <td className="p-6">
-                              <div className="flex items-center gap-4">
-                                 <div className="text-sm font-black text-primary italic">
-                                    {Math.round(can.score)}%
-                                 </div>
-                                 <div className="w-20 h-1.5 bg-primary/5 rounded-full overflow-hidden">
-                                    <motion.div 
-                                       initial={{ width: 0 }}
-                                       animate={{ width: `${can.score}%` }}
-                                       transition={{ duration: 1.5, ease: "easeOut" }}
-                                       className="h-full bg-primary" 
-                                    />
-                                 </div>
-                              </div>
-                           </td>
-                           <td className="p-6 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                              {new Date(can.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                           </td>
-                           <td className="p-6">
-                              <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                 <Button variant="ghost" size="icon" className="w-9 h-9 hover:bg-primary/10 hover:text-primary"><Mail className="w-4 h-4" /></Button>
-                                 <Button variant="ghost" size="icon" className="w-9 h-9 hover:bg-rose-500/10 hover:text-rose-500"><Trash2 className="w-4 h-4" /></Button>
-                                 <Button variant="ghost" size="icon" className="w-9 h-9 hover:bg-primary/10"><ExternalLink className="w-4 h-4" /></Button>
-                              </div>
-                           </td>
-                        </motion.tr>
-                      ))}
-                    </AnimatePresence>
-                 </tbody>
-              </table>
-           </div>
-           
-           {!isLoading && candidates.length === 0 && (
-             <div className="py-40 text-center space-y-6">
-                <div className="w-20 h-20 rounded-3xl bg-primary/5 flex items-center justify-center mx-auto">
-                   <Target className="w-10 h-10 text-primary/20" />
-                </div>
+    return (
+        <div className="space-y-10 pb-20 max-w-7xl mx-auto">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-2">
-                   <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Zero Matches Detected</h3>
-                   <p className="text-muted-foreground font-bold text-sm">Expand your search patterns to discover more talent nodes.</p>
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <Users className="w-6 h-6 text-white" />
+                        </div>
+                        <h1 className="text-4xl font-black tracking-tight uppercase">Talent <span className="text-emerald-500 italic">Grid</span></h1>
+                    </div>
+                    <p className="text-sm text-muted-foreground font-bold">Review and orchestrate your synthesized talent nodes.</p>
                 </div>
-                <Button variant="outline" onClick={() => setSearch("")}>Reset Search Grid</Button>
-             </div>
-           )}
 
-            <div className="p-6 bg-secondary/5 border-t border-border/20 flex items-center justify-between">
-               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                  Synthesized {candidates.length} talent nodes from global networks
-               </p>
-               <div className="flex gap-4">
-                  <button className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:underline">Page Alpha</button>
-                  <button className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Next Layer</button>
-               </div>
+                <div className="flex items-center gap-4">
+                    <Button 
+                        variant="outline" 
+                        onClick={handleExport}
+                        className="h-12 px-6 rounded-2xl bg-white border-border hover:bg-muted font-black uppercase text-[10px] tracking-widest shadow-sm"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Executive Export
+                    </Button>
+                    <Button className="h-12 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/20">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Node
+                    </Button>
+                </div>
             </div>
-         </Card>
 
-         {/* Talent Detail Modal */}
-         <AnimatePresence>
-            {selectedNode && (
-               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                  <motion.div 
-                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                     onClick={() => setSelectedNode(null)}
-                     className="absolute inset-0 bg-charcoal-700/80 backdrop-blur-md"
-                  />
-                  <motion.div 
-                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                     exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                     className="relative w-full max-w-4xl bg-white rounded-4xl overflow-hidden shadow-2xl z-10 font-mono"
-                  >
-                     <div className="flex flex-col md:flex-row h-[85vh]">
-                        {/* Profile Sidebar */}
-                        <div className="w-full md:w-80 bg-primary/5 p-8 border-r border-border/20 space-y-8 overflow-y-auto">
-                           <div className="w-24 h-24 rounded-3xl bg-primary flex items-center justify-center text-3xl font-black text-white shadow-xl mx-auto md:mx-0">
-                              {selectedNode.first_name[0]}{selectedNode.last_name[0]}
-                           </div>
-                           <div className="space-y-2 text-center md:text-left">
-                              <h2 className="text-2xl font-black tracking-tighter uppercase leading-none">{selectedNode.first_name} {selectedNode.last_name}</h2>
-                              <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
-                                 <Briefcase className="w-3 h-3 text-primary" /> {selectedNode.title}
-                              </p>
-                           </div>
-                           <div className="space-y-4 pt-4">
-                              <div className="p-4 bg-white rounded-2xl border border-primary/10">
-                                 <p className="text-[10px] uppercase text-muted-foreground font-black mb-1">Synthesized Score</p>
-                                 <div className="flex items-end gap-2 text-3xl font-black text-primary italic">
-                                    {Math.round(selectedNode.score)}%
-                                    <Sparkles className="w-5 h-5 mb-1 animate-pulse" />
-                                 </div>
-                              </div>
-                              <Button className="w-full h-12 rounded-2xl bg-black text-white hover:bg-zinc-800">
-                                 <Mail className="w-4 h-4 mr-2" /> Signal Node
-                              </Button>
-                           </div>
+            {/* Filter & Stats Bar */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <Card className="lg:col-span-3 p-4 bg-white/80 backdrop-blur-xl border-border/50 shadow-sm flex items-center gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                        <input 
+                            type="text" 
+                            placeholder="Search talent profiles, skills, or specific nodes..." 
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-slate-50 border-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 rounded-2xl py-3 pl-12 pr-4 text-xs font-bold transition-all"
+                        />
+                    </div>
+                    <Button variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200">
+                        <Filter className="w-4 h-4 text-slate-600" />
+                    </Button>
+                </Card>
+
+                <Card className="p-4 bg-emerald-500/5 border-emerald-500/10 flex items-center justify-between px-6">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/60">Total Nodes</p>
+                        <p className="text-2xl font-black text-emerald-700">{candidates.length}</p>
+                    </div>
+                    <Activity className="w-8 h-8 text-emerald-500/20" />
+                </Card>
+            </div>
+
+            {/* Main Table Card */}
+            <Card className="overflow-hidden border-border/50 shadow-2xl bg-white/60 backdrop-blur-md rounded-[2rem]">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/50 border-b border-border/50">
+                                <th className="p-6 w-12">
+                                    <button onClick={toggleSelectAll} className="text-slate-300 hover:text-emerald-500 transition-colors">
+                                        {selectedIds.length === candidates.length && candidates.length > 0 ? <CheckSquare className="w-5 h-5 text-emerald-500" /> : <Square className="w-5 h-5" />}
+                                    </button>
+                                </th>
+                                <th className="p-6 text-[11px] font-black uppercase text-slate-500 tracking-[0.2em]">Talent Node</th>
+                                <th className="p-6 text-[11px] font-black uppercase text-slate-500 tracking-[0.2em]">Synthesis Alignment</th>
+                                <th className="p-6 text-[11px] font-black uppercase text-slate-500 tracking-[0.2em]">State</th>
+                                <th className="p-6 text-[11px] font-black uppercase text-slate-500 tracking-[0.2em]">Match Heat</th>
+                                <th className="p-6 text-[11px] font-black uppercase text-slate-500 tracking-[0.2em]">Discovery</th>
+                                <th className="p-6 w-32 text-right text-[11px] font-black uppercase text-slate-500 tracking-[0.2em]">Links</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 relative">
+                            {isLoading && (
+                                <tr>
+                                    <td colSpan={7} className="py-40 text-center">
+                                        <div className="flex flex-col items-center gap-4">
+                                            <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Synthesizing talent nodes...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+
+                            <AnimatePresence mode="popLayout">
+                                {!isLoading && candidates.map((can) => (
+                                    <motion.tr 
+                                        key={can.id} 
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        className={cn(
+                                            "group hover:bg-slate-50/50 transition-all cursor-pointer",
+                                            selectedIds.includes(can.id) && "bg-emerald-50/30"
+                                        )}
+                                        onClick={() => setSelectedCandidate(can)}
+                                    >
+                                        <td className="p-6">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); toggleSelect(can.id); }}
+                                                className="text-slate-300 hover:text-emerald-500 transition-colors"
+                                            >
+                                                {selectedIds.includes(can.id) ? <CheckSquare className="w-5 h-5 text-emerald-500" /> : <Square className="w-5 h-5" />}
+                                            </button>
+                                        </td>
+                                        <td className="p-6">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-all text-xs shadow-sm">
+                                                    {can.first_name[0]}{can.last_name[0]}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{can.first_name} {can.last_name}</p>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{can.title || "Elite Talent"}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-6 max-w-sm">
+                                            <p className="text-[11px] font-bold text-slate-500 line-clamp-2 italic leading-relaxed group-hover:text-slate-700 transition-colors">
+                                                "{can.ai_summary || "Synthesis pending deep neural analysis..."}"
+                                            </p>
+                                        </td>
+                                        <td className="p-6">
+                                            <Badge 
+                                                variant={can.status === "shortlisted" ? "success" : "secondary"}
+                                                className="uppercase tracking-[0.2em] font-black text-[9px] py-1 px-3 rounded-lg"
+                                            >
+                                                {can.status}
+                                            </Badge>
+                                        </td>
+                                        <td className="p-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full border-4 border-slate-100 flex items-center justify-center text-[10px] font-black relative group-hover:scale-110 transition-transform">
+                                                    <svg className="absolute inset-0 w-full h-full -rotate-90">
+                                                        <circle cx="20" cy="20" r="16" className="stroke-slate-50 fill-none" strokeWidth="4" />
+                                                        <motion.circle 
+                                                            initial={{ strokeDasharray: "0, 100" }}
+                                                            animate={{ strokeDasharray: `${can.score}, 100` }}
+                                                            transition={{ duration: 2, ease: "easeOut" }}
+                                                            cx="20" cy="20" r="16" 
+                                                            className={cn("fill-none", can.score >= 80 ? "stroke-emerald-500" : "stroke-blue-500")} 
+                                                            strokeWidth="4" 
+                                                        />
+                                                    </svg>
+                                                    <span className={cn("relative z-10", can.score >= 80 ? "text-emerald-600" : "text-blue-600")}>{can.score}%</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                            {new Date(can.created_at).toLocaleDateString()}
+                                        </td>
+                                        <td className="p-6">
+                                            <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                {can.linkedin_url && (
+                                                    <a href={can.linkedin_url} target="_blank" className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+                                                        <Linkedin className="w-4 h-4" />
+                                                    </a>
+                                                )}
+                                                {can.github_url && (
+                                                    <a href={can.github_url} target="_blank" className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-black transition-all shadow-sm">
+                                                        <Github className="w-4 h-4" />
+                                                    </a>
+                                                )}
+                                                <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-slate-100">
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </motion.tr>
+                                ))}
+                            </AnimatePresence>
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            {/* Selection Quick Actions */}
+            <AnimatePresence>
+                {selectedIds.length > 0 && (
+                    <motion.div 
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6 px-10 py-6 bg-slate-900 text-white rounded-3xl shadow-2xl border border-white/10 backdrop-blur-xl"
+                    >
+                        <div className="flex items-center gap-4 border-r border-white/10 pr-6 mr-6">
+                            <span className="text-[11px] font-black uppercase tracking-widest text-white/40">Selection Control</span>
+                            <span className="text-xl font-black text-emerald-400">{selectedIds.length} Nodes</span>
                         </div>
-
-                        {/* Main Stream Area */}
-                        <div className="flex-1 p-10 overflow-y-auto space-y-10">
-                           <section className="space-y-4">
-                              <h4 className="text-[10px] uppercase text-primary font-black tracking-[0.3em]">Genetic Core Analysis</h4>
-                              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                                 {(selectedNode.skills || ["Node Synthesis", "Reactive Control", "AI Governance"]).map((s: string) => (
-                                    <Badge key={s} className="bg-secondary/10 border-border/30 text-foreground py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest">
-                                       {s}
-                                    </Badge>
-                                 ))}
-                              </div>
-                           </section>
-
-                           <section className="space-y-4">
-                              <div className="flex items-center justify-between border-b border-border/20 pb-2">
-                                 <h4 className="text-[10px] uppercase text-primary font-black tracking-[0.3em]">Integrity Scorer Output</h4>
-                                 <Badge variant="success" className="text-[9px] font-black">VALIDATED</Badge>
-                              </div>
-                              <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-900/10 text-xs leading-relaxed text-emerald-900 font-bold italic">
-                                 "The agent swarm has verified this candidate's alignment with high-precision nodes. Domain-specific expertise in {selectedNode.title} is confirmed above segment baseline."
-                              </div>
-                           </section>
+                        <div className="flex items-center gap-4">
+                            <Button className="h-12 px-8 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/20">
+                                <Mail className="w-4 h-4 mr-2" />
+                                Initiate Signal
+                            </Button>
+                            <Button variant="outline" className="h-12 px-8 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 font-black uppercase text-[10px] tracking-widest">
+                                <ArrowUpRight className="w-4 h-4 mr-2" />
+                                Sync to ATS
+                            </Button>
+                            <Button variant="ghost" className="h-12 px-4 rounded-2xl text-rose-500 hover:bg-rose-500/10 font-black uppercase text-[10px] tracking-widest">
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
                         </div>
-                     </div>
-                  </motion.div>
-               </div>
-            )}
-         </AnimatePresence>
-      </div>
-    </SidebarLayout>
-  );
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 }

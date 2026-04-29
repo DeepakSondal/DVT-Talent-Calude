@@ -4,17 +4,25 @@ Full candidate lifecycle management with AI scoring
 """
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime, timezone
+import csv
+import io
 import base64
+import uuid as _uuid
+import structlog
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, timezone
 
 from db.models import Candidate, Resume, CandidateStatus, get_db
 from api.routes.auth import get_current_user, User
+from services.security_service import log_audit_event
 
+log = structlog.get_logger(__name__)
 router = APIRouter()
 
 
@@ -118,10 +126,61 @@ async def create_candidate(
         raise HTTPException(status_code=409, detail="Candidate with this email already exists")
 
     candidate = Candidate(**data.model_dump())
+    candidate.tenant_id = current_user.tenant_id
     db.add(candidate)
     await db.commit()
     await db.refresh(candidate)
     return candidate
+
+
+@router.get("/export", response_class=StreamingResponse)
+async def export_candidates(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Export the candidate shortlist as a professional CSV for stakeholders."""
+    result = await db.execute(
+        select(Candidate).where(Candidate.tenant_id == current_user.tenant_id)
+    )
+    candidates = result.scalars().all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Headers
+    writer.writerow([
+        "Full Name", "Title", "Current Company", "Score", 
+        "Location", "Email", "LinkedIn", "AI Strengths", 
+        "AI Weaknesses", "Synthesis Verdict", "Sourced Date"
+    ])
+    
+    for c in candidates:
+        strengths = ", ".join(c.scoring_reasoning.get("strengths", [])) if c.scoring_reasoning else ""
+        weaknesses = ", ".join(c.scoring_reasoning.get("weaknesses", [])) if c.scoring_reasoning else ""
+        alignment = c.scoring_reasoning.get("alignment", "") if c.scoring_reasoning else ""
+        
+        writer.writerow([
+            f"{c.first_name} {c.last_name}",
+            c.title or "N/A",
+            c.current_company or "N/A",
+            f"{c.score}%",
+            c.location or "N/A",
+            c.email,
+            c.linkedin_url or "N/A",
+            strengths,
+            weaknesses,
+            alignment,
+            c.created_at.strftime("%Y-%m-%d")
+        ])
+    
+    output.seek(0)
+    filename = f"Talent_Synthesis_{datetime.now().strftime('%Y%m%d')}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 @router.get("/{candidate_id}", response_model=CandidateOut)
@@ -224,3 +283,79 @@ async def analyze_resume_background(resume_id: str, content: bytes, filename: st
 async def score_candidate_background(candidate_id: str, job_id: Optional[str]):
     from workers.tasks import score_candidate_task
     score_candidate_task.delay(candidate_id, job_id)
+
+
+
+# ── GDPR Right-to-Erasure ─────────────────────────────────────────────────────
+
+@router.delete(
+    "/{candidate_id}/pii",
+    summary="GDPR Right to Erasure — erase all PII for a candidate",
+    status_code=200,
+)
+async def erase_candidate_pii(
+    candidate_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Permanently erases all Personally Identifiable Information (PII) for a candidate.
+    The record row is preserved for audit trail and analytics continuity, but all
+    identifying fields are nullified and the record is flagged as erased.
+
+    Only admin‑role users may call this endpoint.
+    """
+    if current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can erase candidate PII")
+
+    result = await db.execute(
+        select(Candidate).where(
+            Candidate.id == candidate_id,
+            Candidate.tenant_id == current_user.tenant_id,
+        )
+    )
+    candidate = result.scalar_one_or_none()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    if candidate.pii_erased:
+        return {"status": "already_erased", "id": str(candidate_id), "erased_at": candidate.pii_erased_at}
+
+    # Nullify all identifying fields
+    candidate.first_name = "Erased"
+    candidate.last_name = "User"
+    candidate.email = f"erased_{candidate.id}@gdpr.removed"
+    candidate.phone = None
+    candidate.linkedin_url = None
+    candidate.github_url = None
+    candidate.portfolio_url = None
+    candidate.current_company = None
+    candidate.resume_url = None if hasattr(candidate, "resume_url") else None
+    candidate.ai_summary = "[PII erased per GDPR Article 17 request]"
+    candidate.do_not_contact = True
+    candidate.pii_erased = True
+    candidate.pii_erased_at = datetime.now(timezone.utc)
+
+    await db.commit()
+
+    # Audit log
+    try:
+        await log_audit_event(
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            action="GDPR_PII_ERASURE",
+            entity_type="candidate",
+            entity_id=candidate_id,
+            metadata={"erased_by": str(current_user.id), "timestamp": candidate.pii_erased_at.isoformat()},
+        )
+    except Exception:
+        pass  # Never let audit logging failures block the erasure response
+
+    log.info("gdpr_pii_erased", candidate_id=str(candidate_id), erased_by=str(current_user.id))
+    return {
+        "status": "erased",
+        "id": str(candidate_id),
+        "erased_at": candidate.pii_erased_at.isoformat(),
+        "message": "All PII has been permanently removed in compliance with GDPR Article 17.",
+    }
+

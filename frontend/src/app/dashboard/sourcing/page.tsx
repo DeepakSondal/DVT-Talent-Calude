@@ -1,118 +1,179 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Zap, Target, Globe, Filter, Loader2 } from "lucide-react";
-import { agentsApi } from "@/lib/api";
-import { toast } from "sonner";
+import { motion } from "framer-motion";
 import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogTrigger 
-} from "@/components/ui/Dialog";
-import { Checkbox } from "@/components/ui/Checkbox";
+    Target, Sparkles, Search, Filter, 
+    Cpu, ShieldCheck, Play, Loader2, 
+    Network, Database, Users
+} from "lucide-react";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { toast } from "sonner";
+import { agentsApi } from "@/lib/api";
 
-const SECTORS = ["Generative AI", "Fintech", "Cybersecurity", "HealthTech", "Clean Energy"];
-
-export default function SourcingPage() {
+export default function SourcingLab() {
     const [loading, setLoading] = useState(false);
-    const [selectedSectors, setSelectedSectors] = useState<string[]>(SECTORS);
+    const [params, setParams] = useState({
+        boolean_string: "",
+        min_score: 80,
+        platforms: ["GitHub", "LinkedIn", "Dice"],
+        experience_range: "5-10 years"
+    });
 
-    const handleInitiateSwarm = async () => {
+    const handleSourcing = async () => {
+        if (!params.boolean_string) return toast.error("Search query is required");
         setLoading(true);
         try {
-            const res = await agentsApi.triggerDag("Technology", "San Francisco", selectedSectors);
-            toast.success("Swarm Initiated", {
-                description: `Discovery cycle started for ${selectedSectors.length} sectors. Track progress in The Nexus.`
+            await agentsApi.runPhase("sourcing", "copilot", {
+                job_description: params.boolean_string,
+                experience_range: params.experience_range,
+                min_score: params.min_score
             });
-        } catch (err) {
-            toast.error("Swarm Failed", { description: "Check server logs." });
+            toast.success("Sourcing Engine Active", { 
+                description: "Global nodes are being synthesized. Check your telemetry." 
+            });
+        } catch {
+            toast.error("Sourcing failed to initialize");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="p-8 space-y-8 bg-black min-h-screen text-emerald-500 font-mono">
-            <header className="flex items-center justify-between border-b border-emerald-900 pb-6">
-                <div>
-                    <h1 className="text-2xl font-black uppercase tracking-tighter">Strategic Sourcing</h1>
-                    <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-[0.4em]">Omnichannel Discovery Hub</p>
+        <div className="space-y-10 pb-20 max-w-5xl mx-auto">
+            {/* Lab Header */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 text-white">
+                        <Target className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h1 className="text-4xl font-black tracking-tight uppercase">Sourcing <span className="text-purple-500 italic">Lab</span></h1>
+                        <p className="text-xs text-muted-foreground font-black uppercase tracking-widest">Phase 2: Global Node Discovery & AI Synthesis</p>
+                    </div>
                 </div>
+            </div>
 
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button className="bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest text-xs px-6 py-6 h-auto">
-                            <Zap className="w-4 h-4 mr-2" /> Initiate Swarm Discovery
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-black border-emerald-900 text-emerald-500 font-mono">
-                        <DialogHeader>
-                            <DialogTitle className="text-emerald-400 uppercase font-black">Configure Swarm Parameters</DialogTitle>
-                        </DialogHeader>
-                        <div className="py-6 space-y-4">
-                            <h4 className="text-[10px] uppercase text-emerald-800 font-bold">Priority Sectors</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                {SECTORS.map(s => (
-                                    <div key={s} className="flex items-center space-x-2">
-                                        <Checkbox 
-                                            id={s} 
-                                            checked={selectedSectors.includes(s)}
-                                            onCheckedChange={(checked: boolean) => {
-                                                setSelectedSectors(prev => 
-                                                    checked ? [...prev, s] : prev.filter(x => x !== s)
-                                                )
-                                            }}
-                                            className="border-emerald-800 data-[state=checked]:bg-emerald-500"
-                                        />
-                                        <label htmlFor={s} className="text-xs">{s}</label>
-                                    </div>
-                                ))}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Configuration Panel */}
+                <div className="lg:col-span-2 space-y-6">
+                    <Card className="p-8 space-y-8 bg-white/60 backdrop-blur-xl border-border shadow-xl">
+                        <div className="flex items-center gap-2 border-b border-border pb-4">
+                            <Badge variant="primary" className="bg-purple-500/10 text-purple-600 border-purple-500/20 uppercase tracking-widest text-[9px] font-black">Copilot Mode</Badge>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Deep Sourcing Parameters</span>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Boolean Search String / Parameters</label>
+                            <Input 
+                                placeholder="e.g. (React OR Next.js) AND Rust AND 'Distributed Systems'"
+                                value={params.boolean_string}
+                                onChange={e => setParams({...params, boolean_string: e.target.value})}
+                                className="h-12 rounded-xl bg-muted/20 border-transparent focus:bg-white transition-all font-mono text-xs"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Experience Level</label>
+                                <select 
+                                    className="w-full h-12 rounded-xl bg-muted/20 border-transparent focus:bg-white px-4 text-sm font-bold appearance-none transition-all"
+                                    value={params.experience_range}
+                                    onChange={e => setParams({...params, experience_range: e.target.value})}
+                                >
+                                    <option>0-2 Years (Junior)</option>
+                                    <option>3-5 Years (Mid-Level)</option>
+                                    <option>5-10 Years (Senior)</option>
+                                    <option>10+ Years (Principal)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Min Match Score</label>
+                                <div className="flex items-center gap-4">
+                                    <input 
+                                        type="range" min="0" max="100" 
+                                        className="flex-1 h-2 bg-muted rounded-full appearance-none accent-purple-500"
+                                        value={params.min_score}
+                                        onChange={e => setParams({...params, min_score: parseInt(e.target.value)})}
+                                    />
+                                    <span className="text-sm font-black text-purple-600 w-10">{params.min_score}%</span>
+                                </div>
                             </div>
                         </div>
-                        <DialogFooter>
+
+                        <div className="pt-4">
                             <Button 
-                                onClick={handleInitiateSwarm}
-                                disabled={loading || selectedSectors.length === 0}
-                                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase"
+                                onClick={handleSourcing} 
+                                disabled={loading}
+                                className="w-full h-14 rounded-2xl bg-purple-600 hover:bg-purple-700 text-lg font-black uppercase shadow-xl shadow-purple-500/20"
                             >
-                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy Autonomous Agents"}
+                                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                                    <>
+                                        <Play className="w-5 h-5 mr-3 fill-current" />
+                                        Initiate Sourcing Engine
+                                    </>
+                                )}
                             </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </header>
+                        </div>
+                    </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <Card className="bg-emerald-950/10 border-emerald-900 col-span-2">
-                    <CardHeader>
-                        <CardTitle className="text-xs uppercase tracking-widest flex items-center gap-2">
-                             <Globe className="w-4 h-4 text-emerald-800" /> Active Global Signals
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="h-[400px] flex items-center justify-center text-emerald-900 italic text-sm">
-                        [ Omnichannel Heatmap Under Swarm Control ]
-                    </CardContent>
-                </Card>
+                    {/* Sourcing Strategy Panel */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card className="p-4 bg-white border-border shadow-sm flex flex-col items-center text-center gap-2">
+                            <Database className="w-5 h-5 text-purple-400" />
+                            <p className="text-[10px] font-black uppercase tracking-tight">GitHub API</p>
+                            <Badge variant="success" className="text-[8px]">ACTIVE</Badge>
+                        </Card>
+                        <Card className="p-4 bg-white border-border shadow-sm flex flex-col items-center text-center gap-2">
+                            <Network className="w-5 h-5 text-blue-400" />
+                            <p className="text-[10px] font-black uppercase tracking-tight">LinkedIn Scrape</p>
+                            <Badge variant="success" className="text-[8px]">ACTIVE</Badge>
+                        </Card>
+                        <Card className="p-4 bg-white border-border shadow-sm flex flex-col items-center text-center gap-2">
+                            <Cpu className="w-5 h-5 text-emerald-400" />
+                            <p className="text-[10px] font-black uppercase tracking-tight">Graph-Alumni</p>
+                            <Badge variant="primary" className="text-[8px]">PREMIUM</Badge>
+                        </Card>
+                    </div>
+                </div>
 
-                <div className="space-y-4">
-                    <Card className="bg-black border-emerald-900">
-                        <CardHeader>
-                            <CardTitle className="text-xs uppercase tracking-widest">Target Profiles</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {["VP Engineering", "CTO", "Head of AI"].map(role => (
-                                <div key={role} className="flex items-center justify-between border-b border-emerald-900/40 pb-2">
-                                    <span className="text-xs">{role}</span>
-                                    <Badge className="bg-emerald-900/30 text-emerald-500 text-[9px] uppercase">Priority</Badge>
+                {/* Status & Deliverables Sidebar */}
+                <div className="space-y-6">
+                    <Card className="p-6 bg-muted/20 border-border border-dashed space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-border pb-4">Synthesis Output</h3>
+                        
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                                    <span>Nodes Found</span>
+                                    <span className="text-purple-600">0</span>
                                 </div>
-                            ))}
-                        </CardContent>
+                                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-purple-500 w-0" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                                    <span>Integrity Check</span>
+                                    <span className="text-emerald-600">Pending</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 w-0" />
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-slate-900 border-slate-800 text-white relative overflow-hidden group">
+                        <div className="relative z-10 space-y-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400">Bias Shield Status</p>
+                            <p className="text-[10px] font-bold leading-relaxed text-slate-400 uppercase italic">
+                                "All talent synthesis is performed using de-biased scoring algorithms. Personal identifiers are redacted during initial node evaluation."
+                            </p>
+                        </div>
                     </Card>
                 </div>
             </div>

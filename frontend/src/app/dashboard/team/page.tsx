@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { usersApi, type UserOut, type UserRole } from "@/lib/api";
-import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -57,106 +56,104 @@ export default function TeamPage() {
 
   if (error) {
      return (
-        <SidebarLayout>
-           <div className="h-[60vh] flex flex-col items-center justify-center space-y-8">
-              <div className="w-20 h-20 rounded-[2.5rem] bg-rose-500/5 flex items-center justify-center border border-rose-500/20 shadow-xl shadow-rose-500/5">
-                 <ShieldAlert className="w-8 h-8 text-rose-600" />
-              </div>
-              <div className="text-center space-y-3">
-                 <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">Access Restricted</h2>
-                 <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest opacity-60 max-w-xs mx-auto italic">Admin authorization required to manage workspace operator nodes.</p>
-              </div>
-              <Button variant="outline" className="h-12 px-8 uppercase text-[10px] font-black tracking-widest border-border/50" onClick={() => window.location.href='/dashboard'}>Return to HQ</Button>
+        <div className="h-[60vh] flex flex-col items-center justify-center space-y-6">
+           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center border border-red-100 shadow-sm">
+              <ShieldAlert className="w-8 h-8 text-red-500" />
            </div>
-        </SidebarLayout>
+           <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">Access Restricted</h2>
+              <p className="text-sm font-medium text-muted-foreground max-w-sm mx-auto">Admin authorization required to manage workspace operators.</p>
+           </div>
+           <Button variant="outline" className="mt-4" onClick={() => window.location.href='/dashboard'}>Return to HQ</Button>
+        </div>
      );
   }
 
   return (
-    <SidebarLayout>
+    <>
       <div className="space-y-12 pb-20">
-        {/* Naturalist Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 bg-card p-8 rounded-xl shadow-sm border border-border">
            <div className="space-y-3">
-              <Badge variant="primary" className="py-1 px-4 text-[9px] font-black border-primary/20 bg-primary/5">
+              <Badge variant="primary" className="py-1 px-4 text-xs font-semibold">
                  <ShieldCheck className="w-3.5 h-3.5 mr-2 inline" />
                  Workspace Governance: Verified
               </Badge>
-              <h1 className="text-4xl lg:text-6xl font-black tracking-tighter text-foreground leading-none">
-                 Operator <span className="text-primary italic">Directory</span>
+              <h1 className="text-2xl font-bold text-foreground">
+                 Team Directory
               </h1>
-              <p className="text-muted-foreground font-bold text-lg max-w-xl">
+              <p className="text-muted-foreground text-sm max-w-xl">
                  Manage workspace operators, access permissions, and autonomous bridge authority.
               </p>
            </div>
-           <Button variant="primary" size="lg" className="h-14 px-10 rounded-2xl shadow-primary/20 gap-3 group">
-              <UserPlus className="w-5 h-5 transition-transform group-hover:scale-110" />
+           <Button variant="primary" className="h-11 px-6 rounded-lg gap-2">
+              <UserPlus className="w-4 h-4" />
               Invite Operator
            </Button>
         </div>
 
         {/* Workspace IQ Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
            {[
-             { label: "Active Nodes", value: members.length.toString(), icon: Users, color: "text-primary" },
-             { label: "Active Admins", value: members.filter((m: UserOut) => m.role === 'admin').length.toString(), icon: Lock, color: "text-amber-600" },
+             { label: "Active Nodes", value: members.length.toString(), icon: Users, color: "text-indigo-600" },
+             { label: "Active Admins", value: members.filter((m: UserOut) => m.role === 'admin').length.toString(), icon: Lock, color: "text-indigo-600" },
              { label: "Synthesis Uptime", value: "99.9%", icon: TrendingUp, color: "text-emerald-600" },
-             { label: "Infrastructure", value: "Verified", icon: Fingerprint, color: "text-primary" },
+             { label: "Infrastructure", value: "Verified", icon: Fingerprint, color: "text-emerald-600" },
            ].map((stat, i) => (
-             <Card key={i} className="p-8 space-y-6 bg-white/40 border-border/20 group hover:shadow-xl hover:shadow-primary/5 transition-all duration-700">
+             <Card key={i} className="p-6 space-y-4 bg-card border-border shadow-sm rounded-xl">
                 <div className="flex items-center justify-between">
-                   <div className="w-12 h-12 rounded-2xl bg-white border border-border/50 flex items-center justify-center group-hover:scale-110 transition-all duration-700">
+                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
                       <stat.icon className={cn("w-5 h-5", stat.color)} />
                    </div>
-                   <div className="text-[10px] font-black text-muted-foreground/20 uppercase tracking-[0.3em] italic leading-none">0{i + 1}</div>
+                   <div className="text-xs font-bold text-muted-foreground">0{i + 1}</div>
                 </div>
                 <div>
-                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40">{stat.label}</p>
-                   <div className="text-3xl font-black text-foreground mt-1 italic tracking-tighter">{stat.value}</div>
+                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground opacity-80">{stat.label}</p>
+                   <div className="text-2xl font-bold text-foreground mt-1">{stat.value}</div>
                 </div>
              </Card>
            ))}
         </div>
 
         {/* Operator Registry */}
-        <Card className="p-0 border-border/50 bg-white shadow-2xl shadow-primary/5 overflow-hidden rounded-[2.5rem]">
-           <div className="p-8 border-b border-border/20 flex flex-col md:flex-row items-center justify-between gap-6 bg-white/50 backdrop-blur-sm">
+        <Card className="p-0 bg-card border border-border shadow-sm overflow-hidden rounded-xl">
+           <div className="p-6 border-b border-border flex flex-col md:flex-row items-center justify-between gap-4 bg-muted/20">
               <div className="relative flex-1 w-full md:max-w-md group">
-                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40 group-focus-within:text-primary transition-colors" />
+                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                  <input 
                    type="text" 
                    placeholder="Search operator registry..." 
-                   className="w-full bg-primary/5 border-transparent focus:bg-white focus:border-primary/20 rounded-2xl py-4 pl-12 pr-4 text-[11px] font-black uppercase tracking-widest text-foreground placeholder:text-muted-foreground/40 placeholder:lowercase placeholder:tracking-normal transition-all"
+                   className="w-full bg-background border border-border focus:ring-2 focus:ring-primary rounded-lg py-2 pl-10 pr-4 text-sm font-medium text-foreground placeholder:text-muted-foreground transition-all"
                  />
               </div>
               <div className="flex gap-4">
-                 <Button variant="outline" className="gap-3 rounded-2xl h-14 px-8 bg-white border-border/40 text-[10px] font-black uppercase tracking-widest">
-                    <Filter className="w-4 h-4 text-primary/40" />
-                    Role Protocol
+                 <Button variant="outline" className="gap-2 rounded-lg h-10 px-6 bg-background border-border text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <Filter className="w-4 h-4" />
+                    Filter Roles
                  </Button>
               </div>
            </div>
 
            <div className="overflow-x-auto relative min-h-[400px]">
               {isLoading && (
-                 <div className="absolute inset-0 bg-white/40 backdrop-blur-sm flex flex-col items-center justify-center z-20 gap-4">
-                    <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] opacity-40">Syncing Registry...</span>
+                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 gap-4">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Syncing Registry...</span>
                  </div>
               )}
               
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left">
                  <thead>
-                    <tr className="bg-primary/[0.02] border-b border-border/20">
-                       <th className="p-8 text-[9px] font-black uppercase text-muted-foreground tracking-[0.25em] italic">Operator Node</th>
-                       <th className="p-8 text-[9px] font-black uppercase text-muted-foreground tracking-[0.25em] italic">Bridge Authority</th>
-                       <th className="p-8 text-[9px] font-black uppercase text-muted-foreground tracking-[0.25em] italic">Authentication</th>
-                       <th className="p-8 text-[9px] font-black uppercase text-muted-foreground tracking-[0.25em] italic">Last Epoch</th>
-                       <th className="p-8 text-[9px] font-black uppercase text-muted-foreground tracking-[0.25em] italic">Initialization</th>
-                       <th className="p-8 text-right text-[9px] font-black uppercase text-muted-foreground tracking-[0.25em] italic">Protocols</th>
+                    <tr className="bg-muted/10 border-b border-border">
+                       <th className="p-6 text-xs font-bold uppercase text-muted-foreground tracking-wider">Operator Node</th>
+                       <th className="p-6 text-xs font-bold uppercase text-muted-foreground tracking-wider">Bridge Authority</th>
+                       <th className="p-6 text-xs font-bold uppercase text-muted-foreground tracking-wider">Authentication</th>
+                       <th className="p-6 text-xs font-bold uppercase text-muted-foreground tracking-wider">Last Epoch</th>
+                       <th className="p-6 text-xs font-bold uppercase text-muted-foreground tracking-wider">Initialization</th>
+                       <th className="p-6 text-right text-xs font-bold uppercase text-muted-foreground tracking-wider">Protocols</th>
                     </tr>
                  </thead>
-                 <tbody className="divide-y divide-border/20">
+                 <tbody className="divide-y divide-border">
                     <AnimatePresence mode="popLayout">
                        {members.map((member: UserOut, i: number) => (
                           <motion.tr 
@@ -164,49 +161,49 @@ export default function TeamPage() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.05 }}
-                            className="group hover:bg-primary/[0.01] transition-all duration-300"
+                            className="group hover:bg-muted/30 transition-all duration-200"
                           >
-                             <td className="p-8">
-                                <div className="flex items-center gap-5">
-                                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary-foreground/5 flex items-center justify-center text-[11px] font-black text-primary shadow-sm group-hover:scale-105 transition-transform">
+                             <td className="p-6">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm border border-indigo-100">
                                       {member.full_name?.split(' ').map((n: string) => n[0]).join('') || "?"}
                                    </div>
                                    <div className="space-y-1">
-                                      <div className="text-sm font-black text-foreground group-hover:text-primary transition-colors italic leading-none">{member.full_name}</div>
-                                      <div className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-40">{member.email}</div>
+                                      <div className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{member.full_name}</div>
+                                      <div className="text-xs font-medium text-muted-foreground">{member.email}</div>
                                    </div>
                                 </div>
                              </td>
-                             <td className="p-8">
+                             <td className="p-6">
                                 <div className="flex items-center gap-3">
-                                   <Badge variant={member.role === 'admin' ? 'primary' : member.role === 'recruiter' ? 'secondary' : 'outline'} className="h-7 px-4">
-                                      {member.role === 'admin' ? 'Bridge Controller' : member.role === 'recruiter' ? 'Signal Analyst' : 'Operator'}
+                                   <Badge variant={member.role === 'admin' ? 'primary' : member.role === 'recruiter' ? 'secondary' : 'outline'} className="capitalize h-6 px-3">
+                                      {member.role === 'admin' ? 'Admin' : member.role === 'recruiter' ? 'Recruiter' : 'Viewer'}
                                    </Badge>
                                    {member.id === me?.id && (
-                                      <Badge variant="outline" className="text-[8px] h-5 px-1.5 border-primary/20 text-primary bg-primary/5">YOU</Badge>
+                                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-muted text-muted-foreground">YOU</Badge>
                                    )}
                                 </div>
                              </td>
-                             <td className="p-8">
-                                <div className="flex items-center gap-3">
-                                   <div className={cn("w-2 h-2 rounded-full", member.is_active ? "bg-emerald-500 shadow-lg shadow-emerald-500/50" : "bg-muted-foreground/20")} />
-                                   <span className={cn("text-[10px] font-black uppercase tracking-widest italic", member.is_active ? "text-emerald-600" : "text-muted-foreground opacity-40")}>
+                             <td className="p-6">
+                                <div className="flex items-center gap-2">
+                                   <div className={cn("w-2 h-2 rounded-full", member.is_active ? "bg-emerald-500" : "bg-slate-300")} />
+                                   <span className={cn("text-xs font-bold uppercase tracking-wider", member.is_active ? "text-emerald-600" : "text-slate-500")}>
                                       {member.is_active ? "Authorized" : "Suspended"}
                                    </span>
                                 </div>
                              </td>
-                             <td className="p-8 text-[10px] font-black text-muted-foreground/60 uppercase tabular-nums tracking-[0.1em] italic">
-                                {member.last_login ? new Date(member.last_login).toLocaleDateString() : "OFFLINE"}
+                             <td className="p-6 text-xs font-medium text-muted-foreground tabular-nums">
+                                {member.last_login ? new Date(member.last_login).toLocaleDateString() : "Offline"}
                              </td>
-                             <td className="p-8 text-[10px] font-black text-muted-foreground/60 uppercase tabular-nums tracking-[0.1em] italic">
+                             <td className="p-6 text-xs font-medium text-muted-foreground tabular-nums">
                                 {new Date(member.created_at).toLocaleDateString()}
                              </td>
-                             <td className="p-8">
-                                <div className="flex items-center justify-end gap-3">
+                             <td className="p-6">
+                                <div className="flex items-center justify-end gap-2">
                                    <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className="w-10 h-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors shadow-none"
+                                      className="w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                       onClick={() => handleUpdateRole(member.id, member.role === 'admin' ? 'recruiter' : 'admin')}
                                       disabled={member.id === me?.id}
                                    >
@@ -215,14 +212,14 @@ export default function TeamPage() {
                                    <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className="w-10 h-10 rounded-xl hover:bg-rose-500/10 hover:text-rose-600 transition-colors shadow-none"
+                                      className="w-8 h-8 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
                                       onClick={() => handleDeactivate(member.id)}
                                       disabled={member.id === me?.id || !member.is_active}
                                    >
                                       <Zap className="w-4 h-4" />
                                    </Button>
-                                   <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl">
-                                      <MoreVertical className="w-4 h-4 opacity-40" />
+                                   <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg text-muted-foreground">
+                                      <MoreVertical className="w-4 h-4 opacity-50" />
                                    </Button>
                                 </div>
                              </td>
@@ -250,6 +247,6 @@ export default function TeamPage() {
            </div>
         </div>
       </div>
-    </SidebarLayout>
+    </>
   );
 }

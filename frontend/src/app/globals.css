@@ -4,51 +4,51 @@
 
 @layer base {
   :root {
-    /* Naturalist Enterprise Palette */
-    --background: 30 50% 98%;      /* Warm Cream */
-    --foreground: 0 0% 15%;        /* Deep Charcoal for high contrast */
+    /* Light Enterprise Palette */
+    --background: 0 0% 98%;        /* #FAFAFA */
+    --foreground: 220 13% 18%;     /* #1F2937 Slate-800 */
     
-    --card: 30 50% 99%;
-    --card-foreground: 0 0% 15%;
+    --card: 0 0% 100%;             /* Pure White */
+    --card-foreground: 220 13% 18%;
     
-    --primary: 135 18% 59%;        /* Sage-500 */
-    --primary-foreground: 30 50% 98%;
+    --primary: 243 75% 59%;        /* #4F46E5 Indigo-600 */
+    --primary-foreground: 0 0% 100%;
     
-    --secondary: 30 30% 95%;       /* Warm Cream Accent */
-    --secondary-foreground: 135 18% 30%;
+    --secondary: 210 40% 96%;      /* Slate-100 */
+    --secondary-foreground: 222 47% 11%;
     
-    --muted: 30 20% 94%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%; /* Slate-500 */
     
-    --accent: 67 91% 38%;          /* Moss-400 for highlights */
-    --accent-foreground: 30 50% 98%;
+    --accent: 243 75% 59%;
+    --accent-foreground: 0 0% 100%;
     
-    --success: 120 61% 34%;        /* Forest-600 */
-    --destructive: 10 71% 62%;     /* Terracotta-500 */
-    --destructive-foreground: 30 50% 98%;
+    --success: 142 76% 36%;        /* Emerald-600 */
+    --destructive: 0 84% 60%;      /* Rose-500 */
+    --destructive-foreground: 0 0% 100%;
     
-    --border: 30 15% 85%;
-    --input: 30 15% 85%;
-    --ring: 135 18% 59%;
+    --border: 214 32% 91%;         /* Slate-200 */
+    --input: 214 32% 91%;
+    --ring: 243 75% 59%;
     
-    --radius: 1.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 20 10% 10%;
-    --foreground: 30 50% 98%;
+    --background: 222 47% 11%;     /* Slate-950 */
+    --foreground: 210 40% 98%;     /* Slate-50 */
     
-    --card: 20 10% 12%;
-    --card-foreground: 30 50% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
     
-    --primary: 135 20% 50%;
-    --primary-foreground: 30 50% 98%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
     
-    --muted: 20 10% 20%;
-    --muted-foreground: 30 20% 70%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
     
-    --border: 20 10% 20%;
-    --ring: 135 20% 50%;
+    --border: 217 33% 17%;
+    --ring: 243 75% 59%;
   }
 }
 
@@ -57,24 +57,22 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground selection:bg-primary/20;
+    @apply bg-background text-foreground selection:bg-primary/20 font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
-    background-image: radial-gradient(at 0% 0%, hsla(135, 20%, 60%, 0.05) 0px, transparent 50%),
-                      radial-gradient(at 100% 100%, hsla(30, 50%, 98%, 0.05) 0px, transparent 50%);
   }
 }
 
 @layer components {
   .text-gradient-natural {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-primary to-secondary-foreground;
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-primary to-indigo-400;
   }
   
   .glass-natural {
-    @apply bg-white/40 dark:bg-black/40 backdrop-blur-xl border border-white/20 dark:border-white/5;
+    @apply bg-white/60 dark:bg-black/60 backdrop-blur-xl border border-white/20 dark:border-white/5;
   }
 
   .organic-shadow {
-    @apply shadow-[0_20px_50px_-12px_rgba(132,169,140,0.1)];
+    @apply shadow-sm;
   }
 }
 

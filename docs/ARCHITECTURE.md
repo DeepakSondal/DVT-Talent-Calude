@@ -12,72 +12,64 @@ sending outreach, and managing pipelines — all without manual intervention.
 ├──────────────────────────────────────────────────────────────────────┤
 │  FRONTEND (Next.js + TypeScript + TailwindCSS + ShadCN)              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ Pipeline │ │Candidates│ │Campaigns │ │Analytics │ │ Settings │  │
+│  │ Swarm    │ │Candidates│ │Campaigns │ │Analytics │ │ Settings │  │
 │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘  │
 ├───────┼─────────────┼────────────┼─────────────┼────────────┼────────┤
 │  REST API + WebSocket  (HTTPS / JWT Auth)                             │
 ├──────────────────────────────────────────────────────────────────────┤
-│  BACKEND API LAYER (FastAPI + Python 3.11)                           │
+│  BACKEND API LAYER (FastAPI + Python 3.11+)                          │
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │  Auth │ Companies │ Leads │ Candidates │ Campaigns │ Analytics│    │
 │  └──────────────────────────────────────────────────────────────┘    │
 ├──────────────────────────────────────────────────────────────────────┤
-│  AGENT ORCHESTRATOR (CrewAI + LangGraph)                             │
+│  AGENT ORCHESTRATOR (Pydantic AI + FastAPI BackgroundTasks)          │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │              Task Queue (Redis + Celery)                        │  │
+│  │              Real-time Telemetry (Redis PUB/SUB)                │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 ├──────────────────────────────────────────────────────────────────────┤
-│  AGENT LAYER — 10 Autonomous AI Agents                               │
+│  AGENT LAYER — 7 Core Autonomous AI Agents (Pydantic AI)              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │  Market  │ │   Lead   │ │ Company  │ │Candidate │ │  Resume  │  │
-│  │Intel.    │ │Discovery │ │Research  │ │Sourcing  │ │Analysis  │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ Outreach │ │Interview │ │   CRM    │ │Analytics │ │Learning  │  │
-│  │  Agent   │ │Scheduling│ │Management│ │  Agent   │ │  Agent   │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+│  │Market IQ │ │Discovery │ │ Sourcing │ │ Outreach │ │ Analytics│  │
+│  ├──────────┤ ├──────────┤ └──────────┘ └──────────┘ └──────────┘  │
+│  │ Critic   │ │ Screening│                                            │
+│  └──────────┘ └──────────┘                                            │
 ├──────────────────────────────────────────────────────────────────────┤
 │  DATA LAYER                                                           │
 │  ┌─────────────────────┐   ┌────────────────────┐  ┌─────────────┐  │
 │  │   PostgreSQL 15     │   │    ChromaDB         │  │    Redis    │  │
-│  │  (Relational Data)  │   │  (Vector Search)    │  │  (Cache +   │  │
-│  │                     │   │                     │  │   Queue)    │  │
+│  │  (Relational Data)  │   │  (Vector Search)    │  │  (Telemetry) │  │
 │  └─────────────────────┘   └────────────────────┘  └─────────────┘  │
 ├──────────────────────────────────────────────────────────────────────┤
 │  EXTERNAL INTEGRATIONS                                                │
-│  ┌──────┐ ┌────────┐ ┌──────┐ ┌──────────┐ ┌───────┐ ┌──────────┐  │
-│  │ Kimi │ │DeepSeek│ │Serper│ │  Apify   │ │ Gmail │ │  GitHub  │  │
-│  │  API │ │  API   │ │  API │ │(Scraping)│ │  API  │ │   API    │  │
-│  └──────┘ └────────┘ └──────┘ └──────────┘ └───────┘ └──────────┘  │
+│  ┌──────────┐ ┌────────┐ ┌──────┐ ┌──────────┐ ┌───────┐ ┌──────────┐  │
+│  │ OpenAI/   │ │DeepSeek│ │Serper│ │Playwright│ │ Gmail │ │  GitHub  │  │
+│  │ Anthropic │ │ (LLM)  │ │ (Web)│ │(Browser) │ │ (API) │ │ (API)    │  │
+│  └──────────┘ └────────┘ └──────┘ └──────────┘ └───────┘ └──────────┘  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Agent Communication Protocol
 
 Agents communicate through:
-1. **Shared Memory** — Redis-backed shared state
-2. **Structured Tasks** — Pydantic task models passed via queue
-3. **Event Bus** — PostgreSQL NOTIFY + async listeners
-4. **Vector Memory** — ChromaDB for semantic retrieval
+1. **Shared Memory** — Redis-backed shared state.
+2. **Stateful Checkpoints** — PostgreSQL task persistence for Copilot pauses.
+3. **Event Bus** — Real-time progress updates via Redis PUB/SUB + WebSockets.
+4. **Vector Memory** — ChromaDB for semantic retrieval of past candidate matches.
 
-## Data Flow
+## Core Pipeline Flow
 
-```
-Daily Scheduler → Market Intelligence Agent → finds 50+ hiring companies
-                ↓
-              Lead Discovery Agent → finds decision makers for each company
-                ↓
-              Company Research Agent → deep dives into each company
-                ↓
-              Candidate Sourcing Agent → finds 10+ candidates per role
-                ↓
-              Resume Analysis Agent → scores & ranks all candidates
-                ↓
-              Outreach Agent → writes & sends personalized emails
-                ↓
-              CRM Management Agent → updates pipeline states
-                ↓
-              Analytics Agent → calculates performance metrics
-                ↓
-              Learning Agent → improves prompts based on open rates
-```
+### 1. Discovery Phase (Market IQ)
+The **Discovery Agent** scans macroeconomic hiring signals and competitive intelligence to identify high-intent target companies and generates optimized, high-converting Job Descriptions.
+
+### 2. Sourcing Phase (Global Search)
+The **Sourcing Agent** performs multi-channel candidate discovery across GitHub, Dice, and the Web. It uses a **Logic Critic** sub-routine to audit results and prevent hallucinations.
+
+### 3. Outreach Phase (Personalization)
+The **Outreach Agent** generates dynamic micro-sites and hyper-personalized emails based on the candidate's public footprint and psychometric profile.
+
+### 4. Screening Phase (Verification)
+The **Screening Agent** (optional) runs multi-modal ranking, scoring resumes against the JD and identifying high-propensity candidates.
+
+### 5. Analytics Phase (Intelligence)
+The **Analytics Agent** closes the loop by calculating open rates, response rates, and placement velocity to continuously refine the system's prompts.
+

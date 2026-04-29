@@ -1,6 +1,10 @@
-"""
-DVT Talent AI — FastAPI Application Entry Point
-"""
+import sys
+import os
+
+# 🛡️ SDET: Ensure the project root is in sys.path so 'backend' can be imported as a package
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
@@ -12,9 +16,36 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from prometheus_client import make_asgi_app
 
+# ── Sentry Observability ──────────────────────────────────────────────────────
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+import logging
+
+_sentry_dsn = os.getenv("SENTRY_DSN", "")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        environment=os.getenv("APP_ENV", "production"),
+        integrations=[
+            FastApiIntegration(transaction_style="endpoint"),
+            SqlalchemyIntegration(),
+            RedisIntegration(),
+            CeleryIntegration(),
+            LoggingIntegration(level=logging.WARNING, event_level=logging.ERROR),
+        ],
+        traces_sample_rate=0.2,       # 20% of transactions traced
+        profiles_sample_rate=0.1,     # 10% profiled
+        send_default_pii=False,       # GDPR: never send PII
+    )
+
 from config import settings
 from db.models import Base, engine, get_db
-from api.routes import auth, auth_social, auth_sso, webhooks, monitoring, users, companies, leads, candidates, jobs, campaigns, analytics, agents, websocket, tenants
+from api.routes import auth, auth_social, auth_sso, webhooks, monitoring, users, companies, leads, candidates, jobs, campaigns, analytics, agents, websocket, tenants, copilot, billing, integrations, email_sender
+from api.routes import health as health_routes
 
 log = structlog.get_logger()
 
@@ -88,6 +119,11 @@ app.include_router(agents.router,     prefix=f"{PREFIX}/agents",     tags=["Agen
 app.include_router(webhooks.router,   prefix=f"{PREFIX}/webhooks",   tags=["Webhooks"])
 app.include_router(monitoring.router, prefix=f"{PREFIX}/monitoring", tags=["Monitoring"])
 app.include_router(websocket.router,  prefix=f"{PREFIX}/ws",         tags=["WebSocket"])
+app.include_router(copilot.router,    prefix=f"{PREFIX}/copilot",    tags=["Copilot"])
+app.include_router(billing.router,        prefix=f"{PREFIX}/billing",        tags=["Billing"])
+app.include_router(integrations.router,   prefix=f"{PREFIX}/integrations",   tags=["ATS Integrations"])
+app.include_router(email_sender.router,    prefix=PREFIX,                     tags=["Email Sender"])
+app.include_router(health_routes.router, tags=["Health"])
 
 # ── Email Open Tracking (no auth — called by email clients) ──────────────
 from fastapi.responses import Response as FastAPIResponse
@@ -147,9 +183,10 @@ async def track_link_click(tracking_id: _uuid.UUID, url: str, db=Depends(get_db)
     return RedirectResponse(url=url)
 
 
-@app.get("/health", tags=["Health"])
-async def health_check():
-    return {"status": "healthy", "service": "dvt-talent-ai", "version": "1.0.0"}
+# Basic liveness (also defined in health_routes but kept here for backwards compat with load balancers)
+@app.get("/ping", tags=["Health"], include_in_schema=False)
+async def ping():
+    return {"pong": True}
 
 
 @app.get("/", tags=["Root"])

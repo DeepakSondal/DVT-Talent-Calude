@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     chroma_collection_jobs: str = "dvt_jobs"
     chroma_collection_companies: str = "dvt_companies"
 
+    # AI — Anthropic (High Intelligence)
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-3-5-sonnet-latest"
+
     # AI — Kimi (Primary)
     kimi_api_key: str = ""
     kimi_api_base: str = "https://api.moonshot.cn/v1"
@@ -64,7 +68,7 @@ class Settings(BaseSettings):
     # AI — Groq (High Speed)
     groq_api_key: str = ""
     groq_api_base: str = "https://api.groq.com/openai/v1"
-    groq_model: str = "llama3-70b-8192"
+    groq_model: str = "llama-3.3-70b-versatile"
 
     # Search
     serper_api_key: str = ""
@@ -72,11 +76,17 @@ class Settings(BaseSettings):
     # Scraping
     apify_api_key: str = ""
 
-    # Email
+    # Email — System-level SMTP (fallback when tenant has no sender configured)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""          # e.g. noreply@dvttalent.com
+    smtp_pass: str = ""          # Gmail App Password or SMTP password
+
+    # Email — Gmail OAuth (legacy, kept for reference)
     gmail_client_id: str = ""
     gmail_client_secret: str = ""
     gmail_refresh_token: str = ""
-    gmail_sender_email: str = "Deepak@dvttalent.com"
+    gmail_sender_email: str = ""  # Replaced by per-tenant smtp_user
 
     # Social Auth
     google_client_id: str = ""
@@ -106,8 +116,18 @@ class Settings(BaseSettings):
     api_rate_limit: int = 60
     rate_limit_per_hour: int = 1000
 
+    # Stripe Billing
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+
+    # ATS Integrations
+    greenhouse_api_key: str = ""
+    ceipal_api_key: str = ""
+    ceipal_api_base_url: str = "https://api.ceipal.com/v1"
+
     # CORS
-    allowed_origins: str = "http://localhost:3000"
+    allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000"
 
     # Logging
     log_level: str = "INFO"
@@ -122,14 +142,16 @@ class Settings(BaseSettings):
 
     @property
     def primary_llm_api_key(self) -> str:
-        """Return first available LLM API key. Priority: Groq > Kimi > DeepSeek > OpenAI"""
+        """Return first available LLM API key. Priority: Anthropic > Groq > OpenAI > Kimi > DeepSeek"""
+        if self.anthropic_api_key:
+            return self.anthropic_api_key
         if self.groq_api_key:
             return self.groq_api_key
+        if self.openai_api_key:
+            return self.openai_api_key
         if self.kimi_api_key:
             return self.kimi_api_key
-        if self.deepseek_api_key:
-            return self.deepseek_api_key
-        return self.openai_api_key
+        return self.deepseek_api_key
 
     @property
     def primary_llm_base_url(self) -> str:

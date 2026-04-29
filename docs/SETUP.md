@@ -24,6 +24,7 @@ cp backend/.env.example backend/.env
 Edit `backend/.env` and fill in your API keys:
 ```env
 # Required — at least one LLM key
+GROQ_API_KEY=gsk_...        # Recommended (High Speed)
 KIMI_API_KEY=sk-...         # OR
 DEEPSEEK_API_KEY=sk-...     # OR
 OPENAI_API_KEY=sk-...
@@ -62,37 +63,24 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Run database migrations (creates all tables)
-python -c "
-import asyncio
-from db.models import Base, engine
-
-async def init():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print('✅ Database tables created')
-
-asyncio.run(init())
-"
-
-# Start API server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Start API server (Forced IPv4 for local stability)
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-API is now running at: http://localhost:8000
-Swagger docs: http://localhost:8000/api/docs
+API is now running at: http://127.0.0.1:8000
+Swagger docs: http://127.0.0.1:8000/api/docs
 
-### 4. Start Celery Workers (New Terminal)
+### 4. Start Celery Workers (Optional for Core Swarm)
+
+> [!NOTE]
+> The main Swarm Command Center now uses **FastAPI BackgroundTasks** and does not require Celery to run. Celery is only required for scheduled cron-tasks (MarketPulse, etc.).
 
 ```bash
 cd backend
 source venv/bin/activate
 
-# Worker (executes agent tasks)
+# Worker (executes scheduled tasks)
 celery -A workers.celery_app worker --loglevel=info --concurrency=4
-
-# In another terminal — Beat scheduler (autonomous daily tasks)
-celery -A workers.celery_app beat --loglevel=info
 ```
 
 ### 5. Frontend Setup
@@ -107,12 +95,12 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Frontend is now running at: http://localhost:3000
+Frontend is now running at: http://127.0.0.1:3000
 
 ### 6. Create First Admin User
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://127.0.0.1:8000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@dvt.ai",
@@ -355,12 +343,12 @@ dvt-talent-ai/
 │   ├── agents/
 │   │   ├── base_agent.py                # Base class
 │   │   ├── orchestrator.py              # Pipeline coordinator
-│   │   ├── market_intelligence_agent.py # Find hiring companies
-│   │   ├── lead_discovery_agent.py      # Find decision makers
-│   │   ├── candidate_sourcing_agent.py  # Source candidates
-│   │   ├── resume_analysis_agent.py     # AI resume scoring
-│   │   ├── outreach_agent.py            # Email writer
-│   │   └── supporting_agents.py        # CRM, Analytics, Learning, etc.
+│   │   ├── market_iq_agent.py           # Find hiring companies (Market IQ)
+│   │   ├── discovery_agent.py           # Find leads and generate JDs
+│   │   ├── sourcing_agent.py            # Source candidates across web/GitHub
+│   │   ├── screening_agent.py           # AI resume scoring & verification
+│   │   ├── outreach_agent.py            # Email & microsite writer
+│   │   └── critic_agent.py              # Audit & hallucination check
 │   ├── db/
 │   │   ├── models.py                    # Full SQLAlchemy ORM
 │   │   └── migrations.py               # Schema reference

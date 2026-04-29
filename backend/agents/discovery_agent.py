@@ -56,18 +56,20 @@ class DiscoveryAgent(BaseAgent):
         }
 
         try:
-            # 1. Market Discovery (Parallel Search)
-            companies = await self._discover_companies(industry, location, limit)
+            # 1. Market & JD Discovery (Deep Parallelization)
+            discovery_tasks = [
+                self._discover_companies(industry, location, limit),
+                self._optimize_jd(raw_jd) if raw_jd else asyncio.sleep(0, result=None)
+            ]
+            companies, optimized_jd = await asyncio.gather(*discovery_tasks)
             results["companies"] = companies
+            results["optimized_jd"] = optimized_jd
 
             # 2. Lead Discovery for each company (Limited to top matches to avoid rate limits)
-            lead_tasks = [self._discover_leads(c["name"], c["domain"]) for c in companies[:5]]
-            leads_lists = await asyncio.gather(*lead_tasks)
-            results["leads"] = [item for sublist in leads_lists for item in sublist]
-
-            # 3. JD Optimization (if provided)
-            if raw_jd:
-                results["optimized_jd"] = await self._optimize_jd(raw_jd)
+            if companies:
+                lead_tasks = [self._discover_leads(c["name"], c["domain"]) for c in companies[:5]]
+                leads_lists = await asyncio.gather(*lead_tasks)
+                results["leads"] = [item for sublist in leads_lists for item in sublist]
 
             # Signal progress
             for company in companies:

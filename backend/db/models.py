@@ -20,8 +20,13 @@ from config import settings
 
 
 # ── Engine & Session ────────────────────────────────────────────────────────
-# Fallback to an in-memory DB if no URL is provided (prevents crashes during import/testing)
-db_url = settings.database_url or "sqlite+aiosqlite:///:memory:"
+# Fail fast — never silently fall back to in-memory SQLite in production.
+if not settings.database_url:
+    raise ValueError(
+        "DATABASE_URL environment variable is required but not set. "
+        "Set it in backend/.env before starting the server."
+    )
+db_url = settings.database_url
 
 engine = create_async_engine(
     db_url,
@@ -108,6 +113,12 @@ class AgentTaskStatus(str, enum.Enum):
     RETRYING = "retrying"
 
 
+class CreditTransactionType(str, enum.Enum):
+    CREDIT = "credit"    # Credits added (subscription, topup)
+    DEBIT = "debit"      # Credits consumed (agent run)
+    REFUND = "refund"    # Credits refunded
+
+
 # ── Models ───────────────────────────────────────────────────────────────────
 class TimestampMixin:
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -118,19 +129,37 @@ class Tenant(Base, TimestampMixin):
     __tablename__ = "tenants"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
-    name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False, index=True)
     domain = Column(String(255), unique=True)
     is_active = Column(Boolean, default=True)
     settings = Column(JSON, default=dict)
-    subscription_plan = Column(String(50), default="starter")
+    subscription_plan = Column(String(50), default="starter")  # legacy, kept for compat
+
+    # ── Stripe Billing Fields ─────────────────────────────────────────────
+    stripe_customer_id = Column(String(255), unique=True, nullable=True, index=True)
+    subscription_plan_id = Column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=True)
+    credits_balance = Column(Integer, default=0, nullable=False)
+    credits_last_reset_at = Column(DateTime(timezone=True), nullable=True)
+
+    # ── Email Sender Configuration (Per-Tenant SMTP) ──────────────────────
+    # Lets each customer send outreach from their own email address
+    smtp_host = Column(String(255), nullable=True)             # e.g. smtp.gmail.com
+    smtp_port = Column(Integer, nullable=True, default=587)    # 587 (TLS) or 465 (SSL)
+    smtp_user = Column(String(255), nullable=True)             # their login email
+    smtp_password_encrypted = Column(Text, nullable=True)      # AES-encrypted app password
+    sender_name = Column(String(255), nullable=True)           # "Sarah at Acme Recruiting"
+    sender_email = Column(String(255), nullable=True)          # sarah@acmecorp.com
+    sender_verified = Column(Boolean, default=False, nullable=False)
+    sender_verification_token = Column(String(255), nullable=True)
+    onboarded = Column(Boolean, default=False, nullable=False)  # True = Finished First Run Wizard
+    logo_url = Column(String(500), nullable=True)               # Company branding
 
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -212,6 +241,8 @@ class Contact(Base, TimestampMixin):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), index=True)
+    campaign_id = Column(UUID(as_uuid=True), ForeignKey("email_campaigns.id"), nullable=False, index=True)
+    company_name = Column(String(255), index=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     email = Column(String(255), index=True)
@@ -227,8 +258,6 @@ class Contact(Base, TimestampMixin):
     meta_data = Column("metadata", JSON, default=dict)
 
     company = relationship("Company")
-
-    # FIX: Removed duplicate ix_contacts_email (email column already has index=True)
 
 
 class Job(Base, TimestampMixin):
@@ -285,6 +314,13 @@ class Candidate(Base, TimestampMixin):
     ai_summary = Column(Text)
     do_not_contact = Column(Boolean, default=False)
     meta_data = Column("metadata", JSON, default=dict)
+    # GDPR Right-to-Erasure
+    pii_erased = Column(Boolean, default=False, nullable=False)
+    pii_erased_at = Column(DateTime(timezone=True), nullable=True)
+
+    # ── AI Transparency & Reasoning ───────────────────────────────────────
+    scoring_reasoning = Column(JSON, default=dict)    # Why the match score?
+    integrity_reasoning = Column(JSON, default=dict)  # Why the integrity score?
 
     resumes = relationship("Resume", back_populates="candidate")
     job_applications = relationship("JobCandidate", back_populates="candidate")
@@ -446,6 +482,8 @@ class AuditLog(Base, TimestampMixin):
     action = Column(String(100), nullable=False)  # e.g. "VIEW_CANDIDATE", "UPDATE_CAMPAIGN"
     entity_type = Column(String(50))
     entity_id = Column(UUID(as_uuid=True))
+    severity = Column(String(20), default="INFO")  # INFO, WARNING, CRITICAL
+    status = Column(String(20), default="SUCCESS") # SUCCESS, FAILURE
     ip_address = Column(String(50))
     user_agent = Column(String(500))
     meta_data = Column("metadata", JSON, default=dict)
@@ -464,3 +502,79 @@ class AnalyticsEvent(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_analytics_events_type_date", "event_type", "created_at"),
     )
+
+
+# ── Billing Models ────────────────────────────────────────────────────────────
+
+class SubscriptionPlan(Base, TimestampMixin):
+    """Mirrors Stripe Products/Prices. Populate via Stripe dashboard or seed script."""
+    __tablename__ = "subscription_plans"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, unique=True)  # e.g. "Starter", "Growth", "Enterprise"
+    stripe_price_id = Column(String(255), nullable=False, unique=True)  # e.g. "price_xxxxx"
+    credits_per_month = Column(Integer, nullable=False, default=500)
+    features = Column(JSON, default=list)  # Feature bullet list for marketing UI
+    price_usd_cents = Column(Integer, default=0)  # e.g. 29900 = $299/mo
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_one_time = Column(Boolean, default=False, nullable=False)  # True = Credit Pack, False = Subscription
+
+
+class CreditTransaction(Base):
+    """Immutable audit log of every credit debit/credit for a tenant."""
+    __tablename__ = "credit_transactions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # Positive = credit, Negative = debit
+    type = Column(Enum(CreditTransactionType), nullable=False)
+    description = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_credit_transactions_tenant_date", "tenant_id", "created_at"),
+    )
+
+
+# ── ATS Integration Models ────────────────────────────────────────────────────
+
+class IntegrationConnection(Base, TimestampMixin):
+    """Stores encrypted ATS credentials per tenant per provider."""
+    __tablename__ = "integration_connections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    provider = Column(String(50), nullable=False)             # 'greenhouse', 'ceipal'
+    api_key_encrypted = Column(Text(), nullable=False)
+    api_secret_encrypted = Column(Text(), nullable=True)
+    base_url = Column(String(500), nullable=True)
+    auto_export_enabled = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_sync_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_integration_connections_tenant", "tenant_id"),
+        Index("uq_integration_tenant_provider", "tenant_id", "provider", unique=True),
+    )
+
+
+class ATSExportLog(Base):
+    """Immutable log of every candidate export to an ATS."""
+    __tablename__ = "ats_export_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    provider = Column(String(50), nullable=False)
+    candidate_id = Column(UUID(as_uuid=True), ForeignKey("candidates.id"), nullable=True)
+    job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=True)
+    external_candidate_id = Column(String(255), nullable=True)
+    status = Column(String(50), nullable=False, default="pending")
+    response_payload = Column(JSON, default=dict)
+    error_message = Column(Text(), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_ats_export_logs_tenant_provider", "tenant_id", "provider"),
+    )
+
+

@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from uuid import uuid4
 from datetime import datetime
 
-from agents.market_intelligence_agent import MarketIntelligenceAgent
-from agents.candidate_sourcing_agent import CandidateSourcingAgent
+from agents.market_iq_agent import MarketIntelligenceAgent
+from agents.sourcing_agent import SourcingAgent
 from agents.outreach_agent import OutreachAgent
 
 @pytest.mark.asyncio
@@ -14,8 +14,8 @@ async def test_market_intelligence_agent_mock():
     
     mock_response = '{"companies": [{"name": "TestAI", "domain": "testai.com", "hiring_signals": ["Series B", "High growth"]}]}'
     
-    with patch('agents.base_agent.BaseAgent.chat', return_value=mock_response):
-        with patch('agents.base_agent.BaseAgent.search_web', return_value=[{"title": "Test", "link": "test.com", "snippet": "test"}]):
+    with patch('agents.base_agent.BaseAgent.chat_async', new_callable=AsyncMock, return_value=mock_response):
+        with patch('agents.base_agent.BaseAgent.search_web_async', new_callable=AsyncMock, return_value=[{"title": "Test", "link": "test.com", "snippet": "test"}]):
             result = await agent.run_async(industry="AI", location="Global")
             assert len(result["companies"]) == 1
             assert result["companies"][0]["name"] == "TestAI"
@@ -23,12 +23,12 @@ async def test_market_intelligence_agent_mock():
 @pytest.mark.asyncio
 async def test_candidate_sourcing_agent_mock():
     """Test Candidate Sourcing Agent with mocked LLM response"""
-    agent = CandidateSourcingAgent()
+    agent = SourcingAgent()
     
     mock_response = '{"candidates": [{"first_name": "John", "last_name": "Doe", "email": "john@example.com", "score": 95}]}'
-    with patch('agents.base_agent.BaseAgent.chat', return_value=mock_response):
-        with patch('agents.base_agent.BaseAgent.search_web', return_value=[{"title": "Test Engineer", "link": "test.com/john", "snippet": "john"}]):
-            result = await agent.run_async(job_title="Engineer", skills=["Python"])
+    with patch('agents.base_agent.BaseAgent.chat_async', new_callable=AsyncMock, return_value=mock_response):
+        with patch('agents.base_agent.BaseAgent.search_web_async', new_callable=AsyncMock, return_value=[{"title": "Test Engineer", "link": "test.com/john", "snippet": "john"}]):
+            result = await agent.run_async(job_description="Engineer", location="Global")
             assert len(result["candidates"]) == 1
             assert result["candidates"][0]["first_name"] == "John"
             assert result["candidates"][0]["score"] == 95

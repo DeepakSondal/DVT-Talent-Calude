@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import AgentTask, AgentTaskStatus, get_db
 from api.routes.auth import get_current_user, User
-from agents.dag_orchestrator import AsyncDAGOrchestrator, get_orchestrator
 
 router = APIRouter()
 
@@ -80,21 +79,58 @@ async def trigger_agent(
 @router.post("/swarm/run")
 async def run_swarm_pipeline(
     config: PipelineTrigger,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Trigger the unified 5-agent swarm pipeline"""
-    from workers.tasks import run_full_autonomous_pipeline
-    task = run_full_autonomous_pipeline.delay(
+    print(f"🚀 [SWARM TRACE] Received initiation request for industry: {config.industry}")
+    """Trigger the unified swarm pipeline via native background tasks (No Celery required)"""
+    from backend.agents.orchestrator import AgentOrchestrator
+    
+    orchestrator = AgentOrchestrator(tenant_id=str(current_user.tenant_id))
+    
+    # Fire and forget via native background task
+    background_tasks.add_task(
+        orchestrator.run_full_swarm,
         industry=config.industry,
         location=config.location,
-        send_emails=config.send_emails,
         mock_mode=config.mock_mode
     )
+    
     return {
-        "message": "Unified swarm pipeline started", 
-        "celery_task_id": task.id, 
+        "message": "Unified swarm protocol initiated", 
+        "status": "active",
         "mock": config.mock_mode
+    }
+
+
+@router.post("/swarm/phase")
+async def run_swarm_phase(
+    phase: str,
+    mode: str = "copilot",
+    params: Dict[str, Any] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Trigger a specific phase of the swarm (discovery, sourcing, outreach)"""
+    if phase not in ["discovery", "sourcing", "outreach"]:
+        raise HTTPException(status_code=400, detail="Invalid phase")
+
+    from backend.agents.orchestrator import AgentOrchestrator
+    # Pass user/tenant context to the orchestrator for notifications
+    orchestrator = AgentOrchestrator(tenant_id=str(current_user.tenant_id))
+    
+    # Run the phase async
+    # In a real production env, this would be a Celery task, 
+    # but for HITL Copilot, we run it as a background task to allow immediate UI response.
+    import asyncio
+    task = asyncio.create_task(orchestrator.run_swarm_phase(phase, mode=mode, **(params or {})))
+    
+    return {
+        "status": "initiated",
+        "phase": phase,
+        "mode": mode,
+        "message": f"Swarm {phase} sequence started in {mode} mode."
     }
 
 
@@ -124,4 +160,30 @@ async def list_agent_tasks(
             }
             for t in tasks
         ]
+    }
+
+
+@router.get("/status/{task_id}")
+async def get_task_status(
+    task_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the status of a specific agent task"""
+    task = await db.get(AgentTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return {
+        "id": str(task.id),
+        "agent_name": task.agent_name,
+        "task_type": task.task_type,
+        "status": task.status.value,
+        "pipeline_mode": task.pipeline_mode,
+        "current_checkpoint": task.current_checkpoint,
+        "started_at": task.started_at,
+        "completed_at": task.completed_at,
+        "error": task.error_message,
+        "output_data": task.output_data,
+        "created_at": task.created_at,
     }
